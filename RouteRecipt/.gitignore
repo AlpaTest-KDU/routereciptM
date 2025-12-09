@@ -1,0 +1,6 @@
+# Eclipse metadata
+.metadata/
+bin/
+build/
+.gradle/
+*.log
