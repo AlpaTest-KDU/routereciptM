@@ -14,7 +14,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Make scripts executable
+        working-directory: RouteRecipt
         run: chmod +x deploy.sh switch-nginx.sh
 
       - name: Run deploy script
+        working-directory: RouteRecipt
         run: ./deploy.sh
