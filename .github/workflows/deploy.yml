@@ -21,7 +21,6 @@ jobs:
 
       - name: Build JAR
         run: |
-          cd RouteRecipt
           chmod +x gradlew
           ./gradlew clean build
 
