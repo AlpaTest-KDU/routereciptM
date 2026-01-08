@@ -1,22 +1,36 @@
-name: RouteRecipt CI/CD
+name: Build & Deploy (Blue-Green)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ "main" ]
 
 jobs:
-  deploy:
-    runs-on: self-hosted
-
+  build-and-deploy:
+    runs-on: self-hosted   # 현재 쓰시는 러너 유지
     steps:
-      - name: Checkout source
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Make scripts executable
+      # 1) JAR 빌드 (CI에서만)
+      - name: Build JAR
         working-directory: RouteRecipt
-        run: chmod +x deploy.sh switch-nginx.sh
+        run: ./gradlew clean bootJar
 
-      - name: Run deploy script
+      # 2) JAR 업로드 (artifact)
+      - name: Upload JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-jar
+          path: RouteRecipt/build/libs/RouteRecipt-0.0.1-SNAPSHOT.jar
+
+      # 3) 배포 단계에서 JAR 다운로드
+      - name: Download JAR artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: app-jar
+          path: RouteRecipt
+
+      # 4) 배포 스크립트 실행 (Blue/Green)
+      - name: Deploy
         working-directory: RouteRecipt
-        run: ./deploy.sh
+        run: chmod +x deploy.sh && ./deploy.sh
