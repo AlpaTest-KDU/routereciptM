@@ -12,13 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 🔽 여기서 JAR을 러너로 가져옴
-      - name: Download JAR artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: app-jar
-          path: RouteRecipt
-
       - name: Deploy only
         working-directory: RouteRecipt
         run: |
