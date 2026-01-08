@@ -11,4 +11,5 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Deploy only
+        working-directory: RouteRecipt
         run: chmod +x deploy.sh && ./deploy.sh
