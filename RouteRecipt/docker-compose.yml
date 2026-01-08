@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  mariadb:
+    image: mariadb:11.4
+    container_name: routerecipt-mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: routereciptdb
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    networks:
+      - routerecipt-net
+
+  redis:
+    image: redislabs/rebloom:latest
+    container_name: routerecipt-redis
+    restart: always
+    networks:
+      - routerecipt-net
+
+  fastapi-ai:
+    image: localhost/routereciptd_fastapi-ai:latest
+    container_name: routerecipt-fastapi-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    networks:
+      - routerecipt-net
+
+  springboot-blue:
+    build: .
+    image: localhost/routereciptd_springboot:latest
+    container_name: routerecipt-springboot-blue
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: blue
+      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+      SPRING_DATA_REDIS_HOST: routerecipt-redis
+      SPRING_DATA_REDIS_PORT: 6379
+    networks:
+      - routerecipt-net
+
+  springboot-green:
+    build: .
+    image: localhost/routereciptd_springboot:latest
+    container_name: routerecipt-springboot-green
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: green
+      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+      SPRING_DATA_REDIS_HOST: routerecipt-redis
+      SPRING_DATA_REDIS_PORT: 6379
+    networks:
+      - routerecipt-net
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: routerecipt-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.generated.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - routerecipt-net
+
+volumes:
+  mariadb_data:
+
+networks:
+  routerecipt-net:
+    driver: bridge

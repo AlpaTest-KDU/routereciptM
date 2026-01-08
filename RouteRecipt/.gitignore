@@ -4,3 +4,14 @@ bin/
 build/
 .gradle/
 *.log
+
+# env
+.env
+
+# build artifacts
+*.jar
+/build/
+/RouteRecipt/build/
+
+# runner / local
+.actions-runner/
