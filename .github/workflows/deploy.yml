@@ -7,22 +7,11 @@ on:
 
 jobs:
   deploy:
-    runs-on: [self-hosted, routerecipt]
+    runs-on: self-hosted
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Build JAR
-        run: |
-          chmod +x gradlew
-          ./gradlew clean build
 
       - name: Upload JAR to Deploy Server
         uses: appleboy/scp-action@v0.1.7
@@ -30,7 +19,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
-          source: RouteRecipt/build/libs/RouteRecipt-0.0.1-SNAPSHOT.jar
+          source: RouteRecipt/RouteRecipt-0.0.1-SNAPSHOT.jar
           target: ${{ secrets.DEPLOY_PATH }}
 
       - name: Execute deploy.sh on Server
