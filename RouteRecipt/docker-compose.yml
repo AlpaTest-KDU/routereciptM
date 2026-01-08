@@ -32,7 +32,9 @@ services:
       - routerecipt-net
 
   springboot-blue:
-    build: .
+    build: 
+    context: ./RouteRecipt
+    dockerfile: Dokcerfile
     image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
     env_file:
@@ -46,7 +48,9 @@ services:
       - routerecipt-net
 
   springboot-green:
-    build: .
+    build: 
+    context: ./RouteRecipt
+    dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
     env_file:
