@@ -33,7 +33,7 @@ services:
 
   springboot-blue:
     build: .
-    image: localhost/routereciptd_springboot:latest
+    image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
     env_file:
       - .env
@@ -47,7 +47,7 @@ services:
 
   springboot-green:
     build: .
-    image: localhost/routereciptd_springboot:latest
+    image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
     env_file:
       - .env

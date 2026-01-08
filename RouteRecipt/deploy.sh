@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# ⭐⭐⭐ 이 줄이 핵심 ⭐⭐⭐
+cd "$(dirname "$0")"
+
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 
 PROJECT="routerecipt"
