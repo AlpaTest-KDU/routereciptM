@@ -1,4 +1,9 @@
 #!/bin/bash
+
+pwd
+ls -al
+ls -al RouteRecipt || true
+
 set -e
 
 # ⭐⭐⭐ 이 줄이 핵심 ⭐⭐⭐
