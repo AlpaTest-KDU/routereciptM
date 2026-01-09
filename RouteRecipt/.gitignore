@@ -15,3 +15,6 @@ build/
 
 # runner / local
 .actions-runner/
+
+# allow deploy jar for CI
+!RouteRecipt-0.0.1-SNAPSHOT.jar
