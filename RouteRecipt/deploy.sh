@@ -25,6 +25,31 @@ GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
 # ===============================
+# 0️⃣ 환경변수 로드 + 방어 (⭐ 핵심 ⭐)
+# ===============================
+REQUIRED_VARS=(
+  DB_USER
+  DB_PASSWORD
+  MYSQL_ROOT_PASSWORD
+  OPENAI_API_KEY
+  AI_CATEGORY_URL
+  CLOVA_URL
+  CLOVA_SECRET
+)
+
+for VAR in "${REQUIRED_VARS[@]}"; do
+  if [[ -z "${!VAR}" ]]; then
+    echo "❌ 필수 환경변수 누락: $VAR"
+    exit 1
+  fi
+done
+
+# DB URL은 고정값 → Secrets에 둘 필요 없음
+export SPRING_DATASOURCE_URL="jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb"
+
+echo "✅ 환경변수 검증 완료"
+
+# ===============================
 # 1️⃣ 현재 활성 컨테이너 판별 (방어 포함)
 # ===============================
 BLUE_RUNNING=$("${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^${BLUE_CONTAINER}$" && echo yes || echo no)
@@ -88,7 +113,7 @@ if [[ "$HEALTH_OK" != "true" ]]; then
 fi
 
 # ===============================
-# 5️⃣ nginx 트래픽 전환 (⭐ blue/green 인자 주의 ⭐)
+# 5️⃣ nginx 트래픽 전환
 # ===============================
 TARGET_COLOR=$(echo "$INACTIVE_SERVICE" | sed 's/springboot-//')
 echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
