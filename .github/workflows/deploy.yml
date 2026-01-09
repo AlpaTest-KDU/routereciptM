@@ -12,8 +12,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy (Blue-Green)
+      - name: Deploy only
         working-directory: RouteRecipt
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          AI_CATEGORY_URL: ${{ secrets.AI_CATEGORY_URL }}
+          CLOVA_URL: ${{ secrets.CLOVA_URL }}
+          CLOVA_SECRET: ${{ secrets.CLOVA_SECRET }}
         run: |
           chmod +x deploy.sh
           ./deploy.sh
