@@ -5,13 +5,20 @@ services:
     image: mariadb:11.4
     container_name: routerecipt-mariadb
     restart: always
+
+    # ⭐ 핵심: .env 명시적 연결
+    env_file:
+      - .env
+
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_DATABASE: routereciptdb
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
+
     volumes:
       - mariadb_data:/var/lib/mysql
+
     networks:
       - routerecipt-net
 
@@ -40,20 +47,16 @@ services:
     depends_on:
       - mariadb
       - redis
+
+    env_file:
+      - .env
+
     environment:
       SPRING_PROFILES_ACTIVE: blue
-
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
-
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
 
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AI_CATEGORY_URL: ${AI_CATEGORY_URL}
-      CLOVA_URL: ${CLOVA_URL}
-      CLOVA_SECRET: ${CLOVA_SECRET}
     networks:
       - routerecipt-net
 
@@ -66,20 +69,16 @@ services:
     depends_on:
       - mariadb
       - redis
+
+    env_file:
+      - .env
+
     environment:
       SPRING_PROFILES_ACTIVE: green
-
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
-
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
 
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      AI_CATEGORY_URL: ${AI_CATEGORY_URL}
-      CLOVA_URL: ${CLOVA_URL}
-      CLOVA_SECRET: ${CLOVA_SECRET}
     networks:
       - routerecipt-net
 
