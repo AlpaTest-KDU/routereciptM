@@ -25,7 +25,7 @@ GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
 # ===============================
-# 0️⃣ 환경변수 로드 + 방어 (⭐ 핵심 ⭐)
+# 0️⃣ 환경변수 로드 + 방어 + export (⭐ 핵심 ⭐)
 # ===============================
 REQUIRED_VARS=(
   DB_USER
@@ -42,12 +42,14 @@ for VAR in "${REQUIRED_VARS[@]}"; do
     echo "❌ 필수 환경변수 누락: $VAR"
     exit 1
   fi
+  # ⭐⭐⭐ 여기 추가됨 ⭐⭐⭐
+  export "$VAR"="${!VAR}"
 done
 
 # DB URL은 고정값 → Secrets에 둘 필요 없음
 export SPRING_DATASOURCE_URL="jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb"
 
-echo "✅ 환경변수 검증 완료"
+echo "✅ 환경변수 검증 + export 완료"
 
 # ===============================
 # 1️⃣ 현재 활성 컨테이너 판별 (방어 포함)
@@ -83,18 +85,18 @@ echo "🔨 이미지 빌드: $INACTIVE_SERVICE"
 "${PODMAN[@]}" compose build --no-cache "$INACTIVE_SERVICE"
 
 # ===============================
-# 3️⃣ 비활성 컨테이너 재생성 (안전)
+# 3️⃣ 비활성 컨테이너 재생성
 # ===============================
 echo "♻️ $INACTIVE_CONTAINER 재생성"
 "${PODMAN[@]}" rm -f "$INACTIVE_CONTAINER" 2>/dev/null || true
 "${PODMAN[@]}" compose up -d "$INACTIVE_SERVICE"
 
 # ===============================
-# 4️⃣ 헬스체크 (실패 시 즉시 중단)
+# 4️⃣ 헬스체크
 # ===============================
 echo "🩺 헬스체크 확인 중..."
-
 HEALTH_OK=false
+
 for i in {1..30}; do
   if "${PODMAN[@]}" exec "$INACTIVE_CONTAINER" \
       curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
@@ -120,7 +122,7 @@ echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
 ./switch-nginx.sh "$TARGET_COLOR"
 
 # ===============================
-# 6️⃣ 기존 서비스 종료 (있을 때만)
+# 6️⃣ 기존 서비스 종료
 # ===============================
 if [[ -n "$ACTIVE_CONTAINER" ]]; then
   echo "🔁 기존 컨테이너 종료: $ACTIVE_CONTAINER"
