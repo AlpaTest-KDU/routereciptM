@@ -12,6 +12,18 @@ ls -al
 
 chmod +x switch-nginx.sh
 
+# ⭐⭐⭐ 여기 추가 ⭐⭐⭐
+if [[ -f .env ]]; then
+  echo "📦 .env 파일 로드"
+  set -a
+  source .env
+  set +a
+else
+  echo "❌ .env 파일이 존재하지 않습니다"
+  exit 1
+fi
+
+
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 
 PROJECT="routerecipt"
