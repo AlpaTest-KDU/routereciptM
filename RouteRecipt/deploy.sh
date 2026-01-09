@@ -1,15 +1,15 @@
 #!/bin/bash
 set -e
 
+# ===============================
+# 0️⃣ 실행 위치 고정 (CI 필수)
+# ===============================
+cd "$(dirname "$0")"
+
 echo "📂 현재 위치:"
 pwd
 ls -al
-ls -al RouteRecipt || true
 
-# ⭐⭐⭐ 실행 위치 고정 (CI 필수) ⭐⭐⭐
-cd "$(dirname "$0")"
-
-chmod +x deploy.sh
 chmod +x switch-nginx.sh
 
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
@@ -25,7 +25,7 @@ GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
 # ===============================
-# 0️⃣ 환경변수 로드 + 방어 + export (⭐ 핵심 ⭐)
+# 1️⃣ 환경변수 로드 + 검증 + export
 # ===============================
 REQUIRED_VARS=(
   DB_USER
@@ -42,17 +42,16 @@ for VAR in "${REQUIRED_VARS[@]}"; do
     echo "❌ 필수 환경변수 누락: $VAR"
     exit 1
   fi
-  # ⭐⭐⭐ 여기 추가됨 ⭐⭐⭐
   export "$VAR"="${!VAR}"
 done
 
-# DB URL은 고정값 → Secrets에 둘 필요 없음
+# DB URL은 고정
 export SPRING_DATASOURCE_URL="jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb"
 
 echo "✅ 환경변수 검증 + export 완료"
 
 # ===============================
-# 1️⃣ 현재 활성 컨테이너 판별 (방어 포함)
+# 2️⃣ 현재 활성 컨테이너 판별
 # ===============================
 BLUE_RUNNING=$("${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^${BLUE_CONTAINER}$" && echo yes || echo no)
 GREEN_RUNNING=$("${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^${GREEN_CONTAINER}$" && echo yes || echo no)
@@ -69,7 +68,6 @@ elif [[ "$GREEN_RUNNING" == "yes" ]]; then
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
 else
   echo "⚠️ blue/green 모두 실행 중이 아닙니다 (최초 배포)"
-  ACTIVE_SERVICE=""
   ACTIVE_CONTAINER=""
   INACTIVE_SERVICE="$BLUE_SERVICE"
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
@@ -79,27 +77,27 @@ echo "현재 활성 컨테이너: ${ACTIVE_CONTAINER:-없음}"
 echo "다음 배포 대상 컨테이너: $INACTIVE_CONTAINER"
 
 # ===============================
-# 2️⃣ 이미지 재빌드
+# 3️⃣ 이미지 빌드
 # ===============================
 echo "🔨 이미지 빌드: $INACTIVE_SERVICE"
 "${PODMAN[@]}" compose build --no-cache "$INACTIVE_SERVICE"
 
 # ===============================
-# 3️⃣ 비활성 컨테이너 재생성
+# 4️⃣ 비활성 컨테이너 재생성
 # ===============================
 echo "♻️ $INACTIVE_CONTAINER 재생성"
 "${PODMAN[@]}" rm -f "$INACTIVE_CONTAINER" 2>/dev/null || true
 "${PODMAN[@]}" compose up -d "$INACTIVE_SERVICE"
 
 # ===============================
-# 4️⃣ 헬스체크
+# 5️⃣ 헬스체크
 # ===============================
 echo "🩺 헬스체크 확인 중..."
 HEALTH_OK=false
 
 for i in {1..30}; do
   if "${PODMAN[@]}" exec "$INACTIVE_CONTAINER" \
-      curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
+    curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
     echo "✅ 헬스체크 통과"
     HEALTH_OK=true
     break
@@ -115,14 +113,14 @@ if [[ "$HEALTH_OK" != "true" ]]; then
 fi
 
 # ===============================
-# 5️⃣ nginx 트래픽 전환
+# 6️⃣ nginx 트래픽 전환
 # ===============================
 TARGET_COLOR=$(echo "$INACTIVE_SERVICE" | sed 's/springboot-//')
 echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
 ./switch-nginx.sh "$TARGET_COLOR"
 
 # ===============================
-# 6️⃣ 기존 서비스 종료
+# 7️⃣ 기존 컨테이너 종료
 # ===============================
 if [[ -n "$ACTIVE_CONTAINER" ]]; then
   echo "🔁 기존 컨테이너 종료: $ACTIVE_CONTAINER"
