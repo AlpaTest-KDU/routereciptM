@@ -13,10 +13,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ CI에서 .env 파일 생성 (VS Code + CI 완전 호환)
+      # 2️⃣ CI에서 .env 파일 강제 재생성 (최종 정답)
       - name: Create .env file
         working-directory: RouteRecipt
         run: |
+          echo "🧹 기존 .env 삭제"
+          rm -f .env
+
+          echo "📝 새 .env 생성"
           printf "%s\n" \
           "MARIADB_ROOT_PASSWORD=${{ secrets.MARIADB_ROOT_PASSWORD }}" \
           "DB_USER=${{ secrets.DB_USER }}" \
@@ -28,8 +32,8 @@ jobs:
           "CLOVA_SECRET=${{ secrets.CLOVA_SECRET }}" \
           > .env
 
-          echo "✅ .env file created"
-          sed -n '1,20p' .env
+          echo "📄 .env 내용 확인"
+          nl -ba .env
 
       # 3️⃣ 배포 스크립트 실행
       - name: Deploy only
