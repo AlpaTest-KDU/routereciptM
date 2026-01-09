@@ -9,6 +9,9 @@ set -e
 # ⭐⭐⭐ 이 줄이 핵심 ⭐⭐⭐
 cd "$(dirname "$0")"
 
+chmod +x deploy.sh
+chmod +x switch-nginx.sh
+
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 
 PROJECT="routerecipt"
