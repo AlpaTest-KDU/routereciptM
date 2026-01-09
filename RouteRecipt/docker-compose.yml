@@ -37,13 +37,23 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
-    env_file:
-      - .env
     environment:
       SPRING_PROFILES_ACTIVE: blue
-      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+
+      # DB
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+
+      # Redis
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
+
+      # AI / OCR
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_CATEGORY_URL: ${AI_CATEGORY_URL}
+      CLOVA_URL: ${CLOVA_URL}
+      CLOVA_SECRET: ${CLOVA_SECRET}
     networks:
       - routerecipt-net
 
@@ -53,13 +63,23 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
-    env_file:
-      - .env
     environment:
       SPRING_PROFILES_ACTIVE: green
-      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+
+      # DB
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL}
+
+      # Redis
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
+
+      # AI / OCR
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      AI_CATEGORY_URL: ${AI_CATEGORY_URL}
+      CLOVA_URL: ${CLOVA_URL}
+      CLOVA_SECRET: ${CLOVA_SECRET}
     networks:
       - routerecipt-net
 
