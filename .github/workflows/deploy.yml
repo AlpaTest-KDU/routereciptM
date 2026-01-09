@@ -12,18 +12,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Build Spring Boot JAR
-        working-directory: RouteRecipt
-        run: |
-          chmod +x gradlew
-          ./gradlew clean bootJar
-
       - name: Deploy (Blue-Green)
         working-directory: RouteRecipt
         run: |
