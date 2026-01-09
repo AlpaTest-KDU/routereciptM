@@ -1,14 +1,9 @@
 #!/bin/bash
-set -e
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ENV_FILE="$SCRIPT_DIR/.env"
 
-# ===============================
-# 0️⃣ 실행 위치 고정 (CI 필수)
-# ===============================
-cd "$(dirname "$0")"
-
-echo "📂 현재 위치:"
-pwd
-ls -al
+echo "📍 deploy.sh 실행 경로: $(pwd)"
+echo "📍 사용 .env 경로: $ENV_FILE"
 
 chmod +x switch-nginx.sh
 
