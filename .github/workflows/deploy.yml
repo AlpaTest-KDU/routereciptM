@@ -13,23 +13,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ ⭐ CI에서 .env 파일 생성 (핵심)
+      # 2️⃣ CI에서 .env 파일 생성 (VS Code + CI 완전 호환)
       - name: Create .env file
         working-directory: RouteRecipt
         run: |
-          cat > .env <<EOF
-          MARIADB_ROOT_PASSWORD=${{ secrets.MARIADB_ROOT_PASSWORD }}
-          DB_USER=${{ secrets.DB_USER }}
-          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-
-          OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
-          AI_CATEGORY_URL=${{ secrets.AI_CATEGORY_URL }}
-          CLOVA_URL=${{ secrets.CLOVA_URL }}
-          CLOVA_SECRET=${{ secrets.CLOVA_SECRET }}
-          EOF
+          printf "%s\n" \
+          "MARIADB_ROOT_PASSWORD=${{ secrets.MARIADB_ROOT_PASSWORD }}" \
+          "DB_USER=${{ secrets.DB_USER }}" \
+          "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" \
+          "" \
+          "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" \
+          "AI_CATEGORY_URL=${{ secrets.AI_CATEGORY_URL }}" \
+          "CLOVA_URL=${{ secrets.CLOVA_URL }}" \
+          "CLOVA_SECRET=${{ secrets.CLOVA_SECRET }}" \
+          > .env
 
           echo "✅ .env file created"
-          ls -al .env
+          sed -n '1,20p' .env
 
       # 3️⃣ 배포 스크립트 실행
       - name: Deploy only
