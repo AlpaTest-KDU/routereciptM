@@ -17,7 +17,7 @@ jobs:
         env:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MARIADB_ROOT_PASSWORD }}
 
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           AI_CATEGORY_URL: ${{ secrets.AI_CATEGORY_URL }}
