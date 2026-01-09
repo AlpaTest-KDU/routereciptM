@@ -8,15 +8,14 @@ if [[ "$TARGET" != "blue" && "$TARGET" != "green" ]]; then
   exit 1
 fi
 
-# ⭐ podman 절대경로 (deploy.sh와 동일)
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 
 UPSTREAM="routerecipt-springboot-$TARGET"
-NGINX_CONF="nginx/nginx.conf"
 
-echo "🔀 Nginx upstream 전환 → $UPSTREAM"
+echo "🔀 Nginx 대상 → $UPSTREAM"
 
-cat > "$NGINX_CONF" <<EOF
+# nginx.conf 동적 생성
+cat > nginx/nginx.conf <<EOF
 events {}
 
 http {
@@ -36,9 +35,11 @@ http {
 }
 EOF
 
-echo "📄 nginx.conf 갱신 완료"
+echo "♻️ nginx 이미지 재빌드"
+"${PODMAN[@]}" compose build nginx
 
-echo "♻️ nginx 컨테이너 재기동"
+echo "♻️ nginx 컨테이너 재생성"
+"${PODMAN[@]}" rm -f routerecipt-nginx 2>/dev/null || true
 "${PODMAN[@]}" compose up -d nginx
 
-echo "✅ Nginx 트래픽 전환 완료 → $UPSTREAM"
+echo "✅ Nginx 전환 완료 → $UPSTREAM"
