@@ -54,6 +54,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: blue
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
 
@@ -76,6 +78,8 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: green
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
 
