@@ -1,25 +1,30 @@
 #!/bin/bash
 set -e
 
-PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
+# 사용법: ./switch-nginx.sh blue | green
+TARGET="$1"
 
-TARGET_CONTAINER="$1"
-NGINX_CONTAINER="routerecipt-nginx"
-NGINX_CONF="nginx/nginx.generated.conf"
-
-if [ -z "$TARGET_CONTAINER" ]; then
-  echo "❌ 대상 컨테이너를 지정해야 합니다."
+if [ -z "$TARGET" ]; then
+  echo "❌ 사용법: $0 {blue|green}"
   exit 1
 fi
 
-echo "🔀 Nginx upstream 전환 → $TARGET_CONTAINER"
+if [[ "$TARGET" != "blue" && "$TARGET" != "green" ]]; then
+  echo "❌ 대상은 blue 또는 green 만 가능합니다."
+  exit 1
+fi
+
+UPSTREAM="springboot-$TARGET"
+NGINX_CONF="nginx/nginx.conf"
+
+echo "🔀 Nginx upstream 전환 → $UPSTREAM"
 
 cat > "$NGINX_CONF" <<EOF
 events {}
 
 http {
   upstream backend {
-    server ${TARGET_CONTAINER}:8090;
+    server ${UPSTREAM}:8090;
   }
 
   server {
@@ -34,9 +39,9 @@ http {
 }
 EOF
 
-echo "📄 nginx 설정 파일 갱신 완료"
+echo "📄 nginx.conf 갱신 완료"
 
-"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -t
-"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -s reload
+echo "♻️ nginx 컨테이너 재기동"
+podman compose up -d nginx
 
-echo "✅ Nginx 트래픽 전환 완료"
+echo "✅ Nginx 트래픽 전환 완료 → $UPSTREAM"
