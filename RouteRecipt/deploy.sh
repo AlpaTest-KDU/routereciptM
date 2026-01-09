@@ -1,12 +1,12 @@
 #!/bin/bash
+set -e
 
+echo "📂 현재 위치:"
 pwd
 ls -al
 ls -al RouteRecipt || true
 
-set -e
-
-# ⭐⭐⭐ 이 줄이 핵심 ⭐⭐⭐
+# ⭐⭐⭐ 실행 위치 고정 (CI 필수) ⭐⭐⭐
 cd "$(dirname "$0")"
 
 chmod +x deploy.sh
@@ -24,49 +24,84 @@ GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
 
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
-# 1️⃣ 현재 활성 컨테이너 판별
-if "${PODMAN[@]}" ps --format "{{.Names}}" | grep -q -- "$BLUE_CONTAINER"; then
+# ===============================
+# 1️⃣ 현재 활성 컨테이너 판별 (방어 포함)
+# ===============================
+BLUE_RUNNING=$("${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^${BLUE_CONTAINER}$" && echo yes || echo no)
+GREEN_RUNNING=$("${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^${GREEN_CONTAINER}$" && echo yes || echo no)
+
+if [[ "$BLUE_RUNNING" == "yes" ]]; then
   ACTIVE_SERVICE="$BLUE_SERVICE"
   ACTIVE_CONTAINER="$BLUE_CONTAINER"
   INACTIVE_SERVICE="$GREEN_SERVICE"
   INACTIVE_CONTAINER="$GREEN_CONTAINER"
-else
+elif [[ "$GREEN_RUNNING" == "yes" ]]; then
   ACTIVE_SERVICE="$GREEN_SERVICE"
   ACTIVE_CONTAINER="$GREEN_CONTAINER"
   INACTIVE_SERVICE="$BLUE_SERVICE"
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
+else
+  echo "⚠️ blue/green 모두 실행 중이 아닙니다 (최초 배포)"
+  ACTIVE_SERVICE=""
+  ACTIVE_CONTAINER=""
+  INACTIVE_SERVICE="$BLUE_SERVICE"
+  INACTIVE_CONTAINER="$BLUE_CONTAINER"
 fi
 
-echo "현재 활성 컨테이너: $ACTIVE_CONTAINER"
+echo "현재 활성 컨테이너: ${ACTIVE_CONTAINER:-없음}"
 echo "다음 배포 대상 컨테이너: $INACTIVE_CONTAINER"
 
+# ===============================
 # 2️⃣ 이미지 재빌드
+# ===============================
 echo "🔨 이미지 빌드: $INACTIVE_SERVICE"
 "${PODMAN[@]}" compose build --no-cache "$INACTIVE_SERVICE"
 
-# 3️⃣ 비활성 서비스 재생성 (⭐ 핵심)
-echo "♻️ $INACTIVE_SERVICE 재생성"
-"${PODMAN[@]}" compose down "$INACTIVE_SERVICE"
+# ===============================
+# 3️⃣ 비활성 컨테이너 재생성 (안전)
+# ===============================
+echo "♻️ $INACTIVE_CONTAINER 재생성"
+"${PODMAN[@]}" rm -f "$INACTIVE_CONTAINER" 2>/dev/null || true
 "${PODMAN[@]}" compose up -d "$INACTIVE_SERVICE"
 
-# 4️⃣ 헬스체크
+# ===============================
+# 4️⃣ 헬스체크 (실패 시 즉시 중단)
+# ===============================
 echo "🩺 헬스체크 확인 중..."
+
+HEALTH_OK=false
 for i in {1..30}; do
   if "${PODMAN[@]}" exec "$INACTIVE_CONTAINER" \
-      curl -s http://localhost:8090/health | grep -q '"status":"up"'; then
+      curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
     echo "✅ 헬스체크 통과"
+    HEALTH_OK=true
     break
   fi
   echo "⏳ 대기 중... ($i)"
   sleep 2
 done
 
-# 5️⃣ nginx 트래픽 전환
-echo "🔀 Nginx 트래픽 전환"
-./switch-nginx.sh "$INACTIVE_CONTAINER"
+if [[ "$HEALTH_OK" != "true" ]]; then
+  echo "❌ 헬스체크 실패 → 배포 중단"
+  "${PODMAN[@]}" logs "$INACTIVE_CONTAINER" --tail 50 || true
+  exit 1
+fi
 
-# 6️⃣ 기존 서비스 종료
-echo "🔁 기존 컨테이너 종료: $ACTIVE_CONTAINER"
-"${PODMAN[@]}" compose stop "$ACTIVE_SERVICE"
+# ===============================
+# 5️⃣ nginx 트래픽 전환 (⭐ blue/green 인자 주의 ⭐)
+# ===============================
+TARGET_COLOR=$(echo "$INACTIVE_SERVICE" | sed 's/springboot-//')
+echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
+./switch-nginx.sh "$TARGET_COLOR"
+
+# ===============================
+# 6️⃣ 기존 서비스 종료 (있을 때만)
+# ===============================
+if [[ -n "$ACTIVE_CONTAINER" ]]; then
+  echo "🔁 기존 컨테이너 종료: $ACTIVE_CONTAINER"
+  "${PODMAN[@]}" stop "$ACTIVE_CONTAINER"
+else
+  echo "ℹ️ 기존 활성 컨테이너 없음 (최초 배포)"
+fi
 
 echo "🎉 무중단 배포 완료"
