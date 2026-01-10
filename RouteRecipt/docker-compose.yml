@@ -96,12 +96,6 @@ services:
     depends_on:
       - springboot-blue
       - springboot-green
-
-    # ✅ 여기만 추가됨 (핵심)
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
-
     networks:
       - routerecipt-net
 

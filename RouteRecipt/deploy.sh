@@ -13,7 +13,7 @@ echo "📦 .env는 podman compose에서 env_file로 사용합니다"
 
 # ===============================
 # 0️⃣ Nginx 설정 파일 자동 생성
-# (routerecipt.conf ❌ / nginx.conf만)
+# (client_max_body_size = 200M 고정)
 # ===============================
 NGINX_DIR="$SCRIPT_DIR/nginx"
 CONF_DIR="$NGINX_DIR/conf.d"
@@ -29,14 +29,14 @@ events {
 }
 
 http {
-    # 업로드 용량 제한 (전역)
-    client_max_body_size 20M;
+    # 업로드 용량 제한 (전역, 고정)
+    client_max_body_size 200M;
 
     include /etc/nginx/conf.d/*.conf;
 }
 EOF
 
-echo "✅ nginx.conf 생성 완료 (client_max_body_size = 20M)"
+echo "✅ nginx.conf 생성 완료 (client_max_body_size = 200M)"
 
 # ===============================
 # Podman 설정
@@ -54,7 +54,6 @@ GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
 AI_CONTAINER="${PROJECT}-fastapi-ai"
 
 echo "🚀 RouteRecipt 무중단 배포 시작"
-
 echo "📦 환경변수는 podman compose env_file(.env)로 주입됩니다"
 
 # ===============================
