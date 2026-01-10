@@ -1,24 +1,57 @@
 #!/bin/bash
+set -e
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$SCRIPT_DIR/.env"
 
-echo "📍 deploy.sh 실행 경로: $(pwd)"
+echo "📍 deploy.sh 실행 경로: $SCRIPT_DIR"
 echo "📍 사용 .env 경로: $ENV_FILE"
 
-chmod +x switch-nginx.sh
+chmod +x "$SCRIPT_DIR/switch-nginx.sh"
 
-# ⭐⭐⭐ 여기 추가 ⭐⭐⭐
-if [[ -f .env ]]; then
+# ===============================
+# .env 로드
+# ===============================
+if [[ -f "$ENV_FILE" ]]; then
   echo "📦 .env 파일 로드"
   set -a
-  source .env
+  source "$ENV_FILE"
   set +a
 else
   echo "❌ .env 파일이 존재하지 않습니다"
   exit 1
 fi
 
+# ===============================
+# 0️⃣ Nginx 설정 파일 자동 생성
+# (routerecipt.conf ❌ / nginx.conf만)
+# ===============================
+NGINX_DIR="$SCRIPT_DIR/nginx"
+CONF_DIR="$NGINX_DIR/conf.d"
 
+mkdir -p "$CONF_DIR"
+
+cat > "$NGINX_DIR/nginx.conf" << 'EOF'
+user nginx;
+worker_processes auto;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    # 업로드 용량 제한 (전역)
+    client_max_body_size 20M;
+
+    include /etc/nginx/conf.d/*.conf;
+}
+EOF
+
+echo "✅ nginx.conf 생성 완료 (client_max_body_size = 20M)"
+
+# ===============================
+# Podman 설정
+# ===============================
 PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 
 PROJECT="routerecipt"
@@ -34,7 +67,7 @@ AI_CONTAINER="${PROJECT}-fastapi-ai"
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
 # ===============================
-# 1️⃣ 필수 환경변수 검증 (CI에서 내려온 값 기준)
+# 1️⃣ 필수 환경변수 검증
 # ===============================
 REQUIRED_VARS=(
   DB_USER
@@ -56,7 +89,7 @@ done
 echo "✅ 환경변수 검증 완료"
 
 # ===============================
-# 2️⃣ AI 서비스 보장 (fastapi-ai)
+# 2️⃣ AI 서비스 보장
 # ===============================
 echo "🤖 AI 서비스 확인 중..."
 
@@ -134,7 +167,7 @@ fi
 # ===============================
 TARGET_COLOR=$(echo "$INACTIVE_SERVICE" | sed 's/springboot-//')
 echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
-./switch-nginx.sh "$TARGET_COLOR"
+"$SCRIPT_DIR/switch-nginx.sh" "$TARGET_COLOR"
 
 # ===============================
 # 8️⃣ 기존 컨테이너 종료
