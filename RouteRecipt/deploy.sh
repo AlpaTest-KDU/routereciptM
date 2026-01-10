@@ -55,27 +55,7 @@ AI_CONTAINER="${PROJECT}-fastapi-ai"
 
 echo "🚀 RouteRecipt 무중단 배포 시작"
 
-# ===============================
-# 1️⃣ 필수 환경변수 검증
-# ===============================
-REQUIRED_VARS=(
-  DB_USER
-  DB_PASSWORD
-  MARIADB_ROOT_PASSWORD
-  OPENAI_API_KEY
-  AI_CATEGORY_URL
-  CLOVA_URL
-  CLOVA_SECRET
-)
-
-for VAR in "${REQUIRED_VARS[@]}"; do
-  if [[ -z "${!VAR}" ]]; then
-    echo "❌ 필수 환경변수 누락: $VAR"
-    exit 1
-  fi
-done
-
-echo "✅ 환경변수 검증 완료"
+echo "📦 환경변수는 podman compose env_file(.env)로 주입됩니다"
 
 # ===============================
 # 2️⃣ AI 서비스 보장
