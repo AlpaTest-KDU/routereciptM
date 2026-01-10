@@ -9,18 +9,7 @@ echo "📍 사용 .env 경로: $ENV_FILE"
 
 chmod +x "$SCRIPT_DIR/switch-nginx.sh"
 
-# ===============================
-# .env 로드
-# ===============================
-if [[ -f "$ENV_FILE" ]]; then
-  echo "📦 .env 파일 로드"
-  set -a
-  source "$ENV_FILE"
-  set +a
-else
-  echo "❌ .env 파일이 존재하지 않습니다"
-  exit 1
-fi
+echo "📦 .env는 podman compose에서 env_file로 사용합니다"
 
 # ===============================
 # 0️⃣ Nginx 설정 파일 자동 생성
