@@ -6,7 +6,6 @@ services:
     container_name: routerecipt-mariadb
     restart: always
 
-    # ⭐ 핵심: .env 명시적 연결
     env_file:
       - .env
 
@@ -20,23 +19,33 @@ services:
       - mariadb_data:/var/lib/mysql
 
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - mariadb
 
   redis:
     image: redislabs/rebloom:latest
     container_name: routerecipt-redis
     restart: always
+
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - redis
 
   fastapi-ai:
     image: localhost/routereciptd_fastapi-ai:latest
     container_name: routerecipt-fastapi-ai
     restart: unless-stopped
-    ports:
-      - "8000:8000"
+
+    # ⚠ 내부 통신만이면 ports 제거 가능
+    # ports:
+    #   - "8000:8000"
+
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - fastapi-ai
 
   springboot-blue:
     build:
@@ -44,6 +53,7 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
+
     depends_on:
       - mariadb
       - redis
@@ -58,9 +68,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
+      AI_CATEGORY_URL: http://routerecipt-fastapi-ai:8000
 
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - springboot-blue
 
   springboot-green:
     build:
@@ -68,6 +81,7 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
+
     depends_on:
       - mariadb
       - redis
@@ -82,9 +96,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
+      AI_CATEGORY_URL: http://routerecipt-fastapi-ai:8000
 
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - springboot-green
 
   nginx:
     build:
@@ -92,17 +109,23 @@ services:
       dockerfile: Dockerfile
     image: routerecipt-nginx
     container_name: routerecipt-nginx
+
     ports:
       - "80:80"
+
     depends_on:
       - springboot-blue
       - springboot-green
+
     networks:
-      - routerecipt-net
+      routerecipt-net:
+        aliases:
+          - nginx
 
 volumes:
   mariadb_data:
 
 networks:
   routerecipt-net:
-    driver: bridge 
+    driver: bridge
+    name: routerecipt-net
