@@ -9,11 +9,9 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1️⃣ 소스 체크아웃
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ CI에서 .env 파일 강제 재생성 (최종 정답)
       - name: Create .env file
         working-directory: RouteRecipt
         run: |
@@ -22,6 +20,7 @@ jobs:
 
           echo "📝 새 .env 생성"
           printf "%s\n" \
+          "LANG=C.UTF-8" \
           "MARIADB_ROOT_PASSWORD=${{ secrets.MARIADB_ROOT_PASSWORD }}" \
           "DB_USER=${{ secrets.DB_USER }}" \
           "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" \
@@ -35,7 +34,6 @@ jobs:
           echo "📄 .env 내용 확인"
           nl -ba .env
 
-      # 3️⃣ 배포 스크립트 실행
       - name: Deploy only
         working-directory: RouteRecipt
         run: |
