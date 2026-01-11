@@ -28,8 +28,12 @@ services:
     networks:
       - routerecipt-net
 
+  # 🔥 FIXED: fastapi-ai (build 방식으로 변경)
   fastapi-ai:
-    image: localhost/routereciptd_fastapi-ai:latest
+    build:
+      context: ./fastapi-ai
+      dockerfile: Dockerfile
+    image: routereciptd_fastapi-ai:latest
     container_name: routerecipt-fastapi-ai
     restart: unless-stopped
     ports:
@@ -41,7 +45,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: localhost/routereciptd_springboot:blue
+    image: routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
     depends_on:
       - mariadb
@@ -65,7 +69,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: localhost/routereciptd_springboot:green
+    image: routereciptd_springboot:green
     container_name: routerecipt-springboot-green
     depends_on:
       - mariadb
