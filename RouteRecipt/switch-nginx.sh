@@ -13,6 +13,9 @@ NGINX_DIR="$SCRIPT_DIR/nginx"
 CONF_DIR="$NGINX_DIR/conf.d"
 UPSTREAM_CONF="$CONF_DIR/upstream.conf"
 
+PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
+NGINX_CONTAINER="routerecipt-nginx"
+
 BLUE_CONTAINER="routerecipt-springboot-blue"
 GREEN_CONTAINER="routerecipt-springboot-green"
 
@@ -24,7 +27,7 @@ case "$TARGET_COLOR" in
     TARGET_CONTAINER="$GREEN_CONTAINER"
     ;;
   *)
-    echo "❌ 잘못된 인자: $TARGET_COLOR (blue 또는 green)"
+    echo "❌ 잘못된 인자: $TARGET_COLOR (blue | green)"
     exit 1
     ;;
 esac
@@ -42,10 +45,10 @@ EOF
 echo "📄 upstream.conf 생성 완료"
 cat "$UPSTREAM_CONF"
 
-echo "🔍 nginx 설정 검사"
-nginx -t
+echo "🔍 nginx 설정 검사 (컨테이너 내부)"
+"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -t
 
-echo "♻️ nginx reload"
-nginx -s reload
+echo "♻️ nginx reload (컨테이너 내부)"
+"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -s reload
 
 echo "✅ Nginx 트래픽 전환 완료 → $TARGET_COLOR"
