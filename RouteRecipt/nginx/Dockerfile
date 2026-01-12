@@ -8,3 +8,5 @@ COPY routerecipt.conf /etc/nginx/conf.d/routerecipt.conf
 
 # upload 도메인 리다이렉트 설정
 COPY upload.conf /etc/nginx/conf.d/upload.conf
+
+COPY upstream.conf /etc/nginx/conf.d/upstream.conf

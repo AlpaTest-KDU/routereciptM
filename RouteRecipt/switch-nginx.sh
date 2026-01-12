@@ -1,45 +1,51 @@
 #!/bin/bash
 set -e
 
-TARGET="$1"
+TARGET_COLOR="$1"
 
-if [[ "$TARGET" != "blue" && "$TARGET" != "green" ]]; then
-  echo "❌ 대상은 blue 또는 green 만 가능합니다."
+if [[ -z "$TARGET_COLOR" ]]; then
+  echo "❌ 사용법: switch-nginx.sh [blue|green]"
   exit 1
 fi
 
-PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+NGINX_DIR="$SCRIPT_DIR/nginx"
+CONF_DIR="$NGINX_DIR/conf.d"
+UPSTREAM_CONF="$CONF_DIR/upstream.conf"
 
-UPSTREAM="routerecipt-springboot-$TARGET"
+BLUE_CONTAINER="routerecipt-springboot-blue"
+GREEN_CONTAINER="routerecipt-springboot-green"
 
-echo "🔀 Nginx 대상 → $UPSTREAM"
+case "$TARGET_COLOR" in
+  blue)
+    TARGET_CONTAINER="$BLUE_CONTAINER"
+    ;;
+  green)
+    TARGET_CONTAINER="$GREEN_CONTAINER"
+    ;;
+  *)
+    echo "❌ 잘못된 인자: $TARGET_COLOR (blue 또는 green)"
+    exit 1
+    ;;
+esac
 
-# nginx.conf 동적 생성
-cat > nginx/nginx.conf <<EOF
-events {}
+echo "🔀 Nginx upstream 전환 대상: $TARGET_COLOR ($TARGET_CONTAINER)"
 
-http {
-  upstream backend {
-    server ${UPSTREAM}:8090;
-  }
+mkdir -p "$CONF_DIR"
 
-  server {
-    listen 80;
-
-    location / {
-      proxy_pass http://backend;
-      proxy_set_header Host \$host;
-      proxy_set_header X-Real-IP \$remote_addr;
-    }
-  }
+cat > "$UPSTREAM_CONF" << EOF
+upstream backend {
+    server $TARGET_CONTAINER:8090;
 }
 EOF
 
-echo "♻️ nginx 이미지 재빌드"
-"${PODMAN[@]}" compose build nginx
+echo "📄 upstream.conf 생성 완료"
+cat "$UPSTREAM_CONF"
 
-echo "♻️ nginx 컨테이너 재생성"
-"${PODMAN[@]}" rm -f routerecipt-nginx 2>/dev/null || true
-"${PODMAN[@]}" compose up -d nginx
+echo "🔍 nginx 설정 검사"
+nginx -t
 
-echo "✅ Nginx 전환 완료 → $UPSTREAM"
+echo "♻️ nginx reload"
+nginx -s reload
+
+echo "✅ Nginx 트래픽 전환 완료 → $TARGET_COLOR"
