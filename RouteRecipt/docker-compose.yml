@@ -87,7 +87,7 @@ services:
 
   nginx:
     build:
-      context: ./nginx
+      context: ./RouteRecipt/nginx
       dockerfile: Dockerfile
     image: routerecipt-nginx
     container_name: routerecipt-nginx
