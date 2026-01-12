@@ -1,2 +1,5 @@
-FROM nginx:1.25-alpine
-COPY nginx.conf /etc/nginx/nginx.conf
+FROM nginx:alpine
+
+RUN rm -f /etc/nginx/conf.d/default.conf
+
+COPY routerecipt.conf /etc/nginx/conf.d/routerecipt.conf
