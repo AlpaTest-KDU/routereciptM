@@ -10,24 +10,32 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      # 1️⃣ 코드 체크아웃
+      # 1️⃣ Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ 🔥 Podman 머신 상태 초기화 (필수)
-      #    - pause process / internal state 깨짐 방지
-      - name: Restart Podman Machine
+      # 2️⃣ Podman 상태 정리 (환경별 안전 처리)
+      - name: Prepare Podman
+        shell: bash
         run: |
-          podman machine stop
-          podman machine start
+          set +e
+          podman machine ls >/dev/null 2>&1
+          if [ $? -eq 0 ]; then
+            echo "▶ Podman machine detected. Restarting..."
+            podman machine stop || true
+            podman machine start || true
+          else
+            echo "▶ Podman machine not in use. Skipping machine restart."
+          fi
+          set -e
 
-      # 3️⃣ Spring Boot 이미지 빌드
+      # 3️⃣ Build Image
       - name: Build Podman Image
         working-directory: RouteRecipt
         run: |
           podman build -t localhost/routereciptd_springboot:latest .
 
-      # 4️⃣ Blue / Green 무중단 배포
+      # 4️⃣ Deploy (Blue/Green)
       - name: Deploy (Blue/Green)
         working-directory: RouteRecipt
         run: |
