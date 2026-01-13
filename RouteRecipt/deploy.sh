@@ -1,31 +1,23 @@
 #!/bin/bash
 set -e
 
-############################################
-# 기본 경로 설정
-############################################
-BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV_FILE="/home/sdedu01/routerecipt/.env"   # 🔴 실제 .env 절대경로로 수정
+# ===== 고정 설정 =====
+ENV_FILE="/home/sdedu01/actions-runner/.env"
+NETWORK="routerecipt-net"
 IMAGE="localhost/routereciptd_springboot:latest"
 
 BLUE="routerecipt-springboot-blue"
 GREEN="routerecipt-springboot-green"
 
-echo "📁 BASE_DIR = $BASE_DIR"
-cd "$BASE_DIR"
-
-############################################
-# 1️⃣ 이미지 존재 여부 확인 및 빌드
-############################################
-echo "🔍 이미지 존재 여부 확인"
-if ! podman image exists "$IMAGE"; then
-  echo "📦 이미지 없음 → 빌드 수행"
-  podman build -t "$IMAGE" .
+# ===== 안전 체크 =====
+if [ ! -f "$ENV_FILE" ]; then
+  echo "❌ ENV 파일 없음: $ENV_FILE"
+  exit 1
 fi
 
-############################################
-# 2️⃣ Active / Inactive 판단
-############################################
+echo "📁 ENV_FILE = $ENV_FILE"
+
+# ===== Active / Inactive 판별 =====
 if podman ps --format "{{.Names}}" | grep -q "^${BLUE}$"; then
   ACTIVE="$BLUE"
   INACTIVE="$GREEN"
@@ -39,24 +31,19 @@ fi
 echo "🟢 Active  : $ACTIVE"
 echo "🔵 Inactive: $INACTIVE (port=$PORT)"
 
-############################################
-# 3️⃣ Inactive 컨테이너 교체
-############################################
-podman stop "$INACTIVE" || true
-podman rm "$INACTIVE" || true
+# ===== Inactive 재기동 =====
+podman stop "$INACTIVE" 2>/dev/null || true
+podman rm   "$INACTIVE" 2>/dev/null || true
 
 podman run -d \
   --name "$INACTIVE" \
-  --network routerecipt-net \
+  --network "$NETWORK" \
   -p "${PORT}:8090" \
   --env-file "$ENV_FILE" \
   "$IMAGE"
 
-############################################
-# 4️⃣ Health Check (Inactive만)
-############################################
+# ===== Health Check =====
 HEALTH_URL="http://localhost:${PORT}/health"
-echo "⏳ Health check: $HEALTH_URL"
 
 for i in {1..20}; do
   if curl -sf "$HEALTH_URL" > /dev/null; then
