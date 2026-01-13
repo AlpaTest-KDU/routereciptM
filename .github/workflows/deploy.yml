@@ -1,4 +1,4 @@
-name: RouteRecipt CI/CD
+name: RouteRecipt CI (Docker Build)
 
 on:
   push:
@@ -6,38 +6,28 @@ on:
       - main
 
 jobs:
-  deploy:
-    runs-on: self-hosted
+  build:
+    runs-on: ubuntu-latest   # ← 핵심: self-hosted 필요 없음
 
     steps:
-      # 1️⃣ Checkout
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2️⃣ Podman 상태 정리 (환경별 안전 처리)
-      - name: Prepare Podman
-        shell: bash
-        run: |
-          set +e
-          podman machine ls >/dev/null 2>&1
-          if [ $? -eq 0 ]; then
-            echo "▶ Podman machine detected. Restarting..."
-            podman machine stop || true
-            podman machine start || true
-          else
-            echo "▶ Podman machine not in use. Skipping machine restart."
-          fi
-          set -e
+      # Docker 빌드 환경 준비
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      # 3️⃣ Build Image
-      - name: Build Podman Image
+      # Docker 로그인 (GitHub Container Registry 예시)
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 이미지 빌드 & 푸시
+      - name: Build and Push Image
         working-directory: RouteRecipt
         run: |
-          podman build -t localhost/routereciptd_springboot:latest .
-
-      # 4️⃣ Deploy (Blue/Green)
-      - name: Deploy (Blue/Green)
-        working-directory: RouteRecipt
-        run: |
-          chmod +x deploy.sh
-          ./deploy.sh
+          docker build -t ghcr.io/AlpaTest-KDU/routereciptd_springboot:latest .
+          docker push ghcr.io/AlpaTest-KDU/routereciptd_springboot:latest
