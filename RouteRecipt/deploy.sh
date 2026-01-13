@@ -2,7 +2,7 @@
 set -e
 
 #######################################
-# ⭐ 실행 위치 고정 (매우 중요)
+# ⭐ 실행 위치 고정
 #######################################
 cd "$(dirname "$0")"
 
@@ -11,10 +11,10 @@ cd "$(dirname "$0")"
 #######################################
 if command -v podman >/dev/null 2>&1; then
   PODMAN="podman"
-elif [ -x "/mnt/c/Program Files/RedHat/Podman/podman.exe" ]; then
+elif [ -x "/mnt/c/Program Files/RedHat/Podman/Podman.exe" ]; then
   PODMAN="/mnt/c/Program Files/RedHat/Podman/Podman.exe"
 else
-  echo "❌ podman not found. Please install Podman or add it to PATH."
+  echo "❌ podman not found"
   exit 127
 fi
 
@@ -22,34 +22,25 @@ fi
 # 기본 설정
 #######################################
 PROJECT="routerecipt"
-NGINX_CONTAINER="routerecipt-nginx"
-UPSTREAM_DIR="./nginx/conf.d"
-UPSTREAM_FILE="${UPSTREAM_DIR}/upstream.conf"
-
-BLUE="springboot-blue"
 GREEN="springboot-green"
+BLUE="springboot-blue"
 
 echo "🚀 RouteRecipt 배포 시작"
 echo "▶ Using podman: ${PODMAN}"
 
 #######################################
-# 0️⃣ nginx conf 디렉터리 보장
+# 1️⃣ 현재 활성 판단 (green 기준)
 #######################################
-mkdir -p "${UPSTREAM_DIR}"
-
-#######################################
-# 1️⃣ 현재 활성 컨테이너 판별
-#######################################
-if "$PODMAN" ps --format "{{.Names}}" | grep -q "routerecipt-${BLUE}"; then
-  ACTIVE="${BLUE}"
-  INACTIVE="${GREEN}"
-else
+if "$PODMAN" ps --format "{{.Names}}" | grep -q "^routerecipt-${GREEN}$"; then
   ACTIVE="${GREEN}"
   INACTIVE="${BLUE}"
+else
+  ACTIVE="${BLUE}"
+  INACTIVE="${GREEN}"
 fi
 
-echo "현재 활성: $ACTIVE"
-echo "배포 대상: $INACTIVE"
+echo "현재 활성: ${ACTIVE}"
+echo "배포 대상: ${INACTIVE}"
 
 #######################################
 # 2️⃣ 신규 컨테이너 기동
@@ -57,28 +48,16 @@ echo "배포 대상: $INACTIVE"
 echo "▶ ${INACTIVE} 기동"
 "$PODMAN" start "routerecipt-${INACTIVE}"
 
-sleep 5
+#######################################
+# 3️⃣ 기동 안정화 대기
+#######################################
+echo "⏳ 안정화 대기"
+sleep 10
 
 #######################################
-# 3️⃣ upstream.conf 교체
-#######################################
-echo "▶ upstream 전환 → ${INACTIVE}"
-cat > "${UPSTREAM_FILE}" <<EOF
-upstream routerecipt_backend {
-    server routerecipt-${INACTIVE}:8090;
-}
-EOF
-
-#######################################
-# 4️⃣ nginx reload
-#######################################
-echo "▶ nginx reload"
-"$PODMAN" exec "${NGINX_CONTAINER}" nginx -s reload
-
-#######################################
-# 5️⃣ 기존 컨테이너 종료
+# 4️⃣ 기존 컨테이너 종료
 #######################################
 echo "▶ ${ACTIVE} 종료"
 "$PODMAN" stop "routerecipt-${ACTIVE}"
 
-echo "✅ 배포 완료"
+echo "✅ 배포 완료 (nginx untouched)"
