@@ -32,8 +32,10 @@ services:
     image: localhost/routereciptd_fastapi-ai:latest
     container_name: routerecipt-fastapi-ai
     restart: unless-stopped
+
     ports:
       - "8000:8000"
+
     networks:
       - routerecipt-net
 
@@ -43,6 +45,7 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
+
     depends_on:
       - mariadb
       - redis
@@ -67,6 +70,7 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
+
     depends_on:
       - mariadb
       - redis
@@ -91,11 +95,37 @@ services:
       dockerfile: Dockerfile
     image: routerecipt-nginx
     container_name: routerecipt-nginx
+
     ports:
       - "8080:80"
+
     depends_on:
-      - springboot-blue
       - springboot-green
+
+    networks:
+      - routerecipt-net
+
+  # ===============================
+  # ✅ Cloudflare Tunnel (정상 컨테이너화)
+  # ===============================
+  cloudflared:
+    image: cloudflare/cloudflared:2025.11.1
+    container_name: routerecipt-cloudflared
+    restart: unless-stopped
+
+    command:
+    - tunnel
+    - --config
+    - /etc/cloudflared/config.yml
+    - run
+
+    volumes:
+      - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
+      - ./cloudflared/creds.json:/etc/cloudflared/creds.json:ro
+
+    depends_on:
+      - nginx
+
     networks:
       - routerecipt-net
 

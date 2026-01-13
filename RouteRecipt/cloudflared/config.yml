@@ -1,0 +1,11 @@
+tunnel: routerecipt-tunnel-v2
+credentials-file: /etc/cloudflared/creds.json
+
+ingress:
+  - hostname: routerecipt.co.kr
+    service: http://routerecipt-nginx:80
+
+  - hostname: www.routerecipt.co.kr
+    service: http://routerecipt-nginx:80
+
+  - service: http_status:404
