@@ -2,12 +2,17 @@
 set -e
 
 #######################################
+# ⭐ 실행 위치 고정 (매우 중요)
+#######################################
+cd "$(dirname "$0")"
+
+#######################################
 # ⭐ Podman 실행 파일 자동 탐색
 #######################################
 if command -v podman >/dev/null 2>&1; then
   PODMAN="podman"
 elif [ -x "/mnt/c/Program Files/RedHat/Podman/podman.exe" ]; then
-  PODMAN="/mnt/c/Program Files/RedHat/Podman/podman.exe"
+  PODMAN="/mnt/c/Program Files/RedHat/Podman/Podman.exe"
 else
   echo "❌ podman not found. Please install Podman or add it to PATH."
   exit 127
@@ -18,13 +23,19 @@ fi
 #######################################
 PROJECT="routerecipt"
 NGINX_CONTAINER="routerecipt-nginx"
-UPSTREAM_FILE="./nginx/conf.d/upstream.conf"
+UPSTREAM_DIR="./nginx/conf.d"
+UPSTREAM_FILE="${UPSTREAM_DIR}/upstream.conf"
 
 BLUE="springboot-blue"
 GREEN="springboot-green"
 
 echo "🚀 RouteRecipt 배포 시작"
 echo "▶ Using podman: ${PODMAN}"
+
+#######################################
+# 0️⃣ nginx conf 디렉터리 보장
+#######################################
+mkdir -p "${UPSTREAM_DIR}"
 
 #######################################
 # 1️⃣ 현재 활성 컨테이너 판별
