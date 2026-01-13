@@ -1,100 +1,109 @@
 #!/bin/bash
 set -e
 
-echo "🚀 RouteRecipt CI 무중단 배포 시작"
-
+# =====================================================
+# 0️⃣ 기본 설정
+# =====================================================
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+ENV_FILE="$SCRIPT_DIR/.env"
 
-# ===============================
-# Podman 존재 여부 확인만 수행
-# ===============================
-if ! command -v podman >/dev/null 2>&1; then
-  echo "❌ podman이 설치되어 있지 않습니다."
-  echo "👉 GitHub Actions workflow에서 podman을 먼저 설치하세요."
-  exit 1
-fi
+echo "📍 deploy.sh 실행 경로: $SCRIPT_DIR"
+echo "📍 사용 .env 경로: $ENV_FILE"
 
-echo "🧩 podman: $(podman --version)"
+chmod +x "$SCRIPT_DIR/switch-nginx.sh"
 
-# ===============================
-# 서비스 / 컨테이너 이름
-# ===============================
+# =====================================================
+# 1️⃣ Podman 경로 (Windows Runner 고정)
+# =====================================================
+PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
+
+echo "🧩 사용 podman: ${PODMAN[*]}"
+echo "🚀 RouteRecipt 무중단 배포 시작"
+
+# =====================================================
+# 2️⃣ 컨테이너 / 서비스 이름
+# =====================================================
 PROJECT="routerecipt"
 
 BLUE_SERVICE="springboot-blue"
 GREEN_SERVICE="springboot-green"
-AI_SERVICE="fastapi-ai"
-CF_SERVICE="cloudflared"
 
 BLUE_CONTAINER="${PROJECT}-springboot-blue"
 GREEN_CONTAINER="${PROJECT}-springboot-green"
-AI_CONTAINER="${PROJECT}-fastapi-ai"
-CF_CONTAINER="${PROJECT}-cloudflared"
 
-# ===============================
-# 인프라 보장 기동 (DB/Redis/Nginx/AI/CF)
-# ===============================
-echo "📦 인프라 서비스 기동"
-podman compose up -d mariadb redis nginx fastapi-ai cloudflared
-
-# ===============================
-# 활성 Blue / Green 판별
-# ===============================
-if podman ps --format "{{.Names}}" | grep -qx "$BLUE_CONTAINER"; then
-  ACTIVE_CONTAINER="$BLUE_CONTAINER"
-  INACTIVE_SERVICE="$GREEN_SERVICE"
-  INACTIVE_CONTAINER="$GREEN_CONTAINER"
-elif podman ps --format "{{.Names}}" | grep -qx "$GREEN_CONTAINER"; then
+# =====================================================
+# 3️⃣ 현재 활성 컨테이너 판별
+# =====================================================
+if "${PODMAN[@]}" ps --format "{{.Names}}" | grep -qx "$GREEN_CONTAINER"; then
   ACTIVE_CONTAINER="$GREEN_CONTAINER"
-  INACTIVE_SERVICE="$BLUE_SERVICE"
+  ACTIVE_SERVICE="$GREEN_SERVICE"
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
+  INACTIVE_SERVICE="$BLUE_SERVICE"
+elif "${PODMAN[@]}" ps --format "{{.Names}}" | grep -qx "$BLUE_CONTAINER"; then
+  ACTIVE_CONTAINER="$BLUE_CONTAINER"
+  ACTIVE_SERVICE="$BLUE_SERVICE"
+  INACTIVE_CONTAINER="$GREEN_CONTAINER"
+  INACTIVE_SERVICE="$GREEN_SERVICE"
 else
-  echo "⚠️ 최초 배포 → blue 선택"
+  echo "⚠️ 활성 컨테이너 없음 → blue 최초 배포"
   ACTIVE_CONTAINER=""
-  INACTIVE_SERVICE="$BLUE_SERVICE"
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
+  INACTIVE_SERVICE="$BLUE_SERVICE"
 fi
 
 echo "현재 활성 컨테이너: ${ACTIVE_CONTAINER:-없음}"
-echo "다음 배포 대상: $INACTIVE_CONTAINER"
+echo "다음 배포 대상 컨테이너: $INACTIVE_CONTAINER"
 
-# ===============================
-# Spring 이미지 빌드
-# ===============================
-echo "🔨 Spring 이미지 빌드: $INACTIVE_SERVICE"
-podman compose build --no-cache "$INACTIVE_SERVICE"
+# =====================================================
+# 4️⃣ Spring Boot 이미지 빌드 (단일 서비스만)
+# =====================================================
+echo "🔨 이미지 빌드: $INACTIVE_SERVICE"
+"${PODMAN[@]}" compose build --no-cache "$INACTIVE_SERVICE"
 
-# ===============================
-# 비활성 컨테이너 재기동
-# ===============================
-podman rm -f "$INACTIVE_CONTAINER" 2>/dev/null || true
-podman compose up -d --no-deps "$INACTIVE_SERVICE"
+# =====================================================
+# 5️⃣ 비활성 Spring 컨테이너만 재생성
+#    (❗ DB / Redis / Nginx / Cloudflared 건드리지 않음)
+# =====================================================
+echo "♻️ $INACTIVE_CONTAINER 재생성"
+"${PODMAN[@]}" rm -f "$INACTIVE_CONTAINER" 2>/dev/null || true
+"${PODMAN[@]}" compose up -d --no-deps "$INACTIVE_SERVICE"
 
-# ===============================
-# 헬스체크
-# ===============================
-echo "🩺 헬스체크"
+# =====================================================
+# 6️⃣ 헬스체크
+# =====================================================
+echo "🩺 헬스체크 확인 중..."
+HEALTH_OK=false
+
 for i in {1..30}; do
-  if podman exec "$INACTIVE_CONTAINER" \
+  if "${PODMAN[@]}" exec "$INACTIVE_CONTAINER" \
      curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
     echo "✅ 헬스체크 통과"
+    HEALTH_OK=true
     break
   fi
+  echo "⏳ 대기 중... ($i)"
   sleep 2
 done
 
-# ===============================
-# Nginx 트래픽 전환
-# ===============================
-chmod +x switch-nginx.sh
-./switch-nginx.sh "${INACTIVE_SERVICE#springboot-}"
-
-# ===============================
-# 기존 컨테이너 종료
-# ===============================
-if [[ -n "$ACTIVE_CONTAINER" ]]; then
-  podman stop "$ACTIVE_CONTAINER"
+if [[ "$HEALTH_OK" != "true" ]]; then
+  echo "❌ 헬스체크 실패 → 배포 중단"
+  "${PODMAN[@]}" logs "$INACTIVE_CONTAINER" --tail 50 || true
+  exit 1
 fi
 
-echo "🎉 무중단 배포 완료"
+# =====================================================
+# 7️⃣ Nginx 트래픽 전환
+# =====================================================
+TARGET_COLOR="${INACTIVE_SERVICE#springboot-}"
+echo "🔀 Nginx 트래픽 전환 → $TARGET_COLOR"
+"$SCRIPT_DIR/switch-nginx.sh" "$TARGET_COLOR"
+
+# =====================================================
+# 8️⃣ 기존 Spring 컨테이너 종료
+# =====================================================
+if [[ -n "$ACTIVE_CONTAINER" ]]; then
+  echo "🔁 기존 컨테이너 종료: $ACTIVE_CONTAINER"
+  "${PODMAN[@]}" stop "$ACTIVE_CONTAINER"
+fi
+
+echo "🎉 RouteRecipt 무중단 배포 완료"
