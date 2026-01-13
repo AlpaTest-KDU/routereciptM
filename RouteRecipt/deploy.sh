@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+echo "🔍 이미지 존재 여부 확인"
+if ! podman image exists localhost/routereciptd_springboot:latest; then
+  echo "📦 이미지 없음 → 빌드 수행"
+  podman build -t localhost/routereciptd_springboot:latest .
+fi
+
 cd "$(dirname "$0")"
 
 BLUE="routerecipt-springboot-blue"
