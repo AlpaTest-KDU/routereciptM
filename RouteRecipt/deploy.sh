@@ -2,23 +2,10 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-ENV_FILE="$SCRIPT_DIR/.env"
 
-echo "📍 deploy.sh 실행 경로: $SCRIPT_DIR"
-echo "📍 사용 .env 경로: $ENV_FILE"
+echo "🚀 RouteRecipt CI 무중단 배포 시작 (Linux Runner)"
 
-chmod +x "$SCRIPT_DIR/switch-nginx.sh"
-
-# ===============================
-# Podman 경로 판별
-# ===============================
-if command -v podman >/dev/null 2>&1; then
-  PODMAN=(podman)
-else
-  PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
-fi
-
-echo "🧩 사용 podman: ${PODMAN[*]}"
+PODMAN=(podman)
 
 PROJECT="routerecipt"
 
@@ -29,52 +16,38 @@ CF_SERVICE="cloudflared"
 
 BLUE_CONTAINER="${PROJECT}-springboot-blue"
 GREEN_CONTAINER="${PROJECT}-springboot-green"
-AI_CONTAINER="${PROJECT}-fastapi-ai"
-CF_CONTAINER="${PROJECT}-cloudflared"
-
-echo "🚀 RouteRecipt 무중단 배포 시작"
 
 # ===============================
 # AI / Cloudflare 보장
 # ===============================
-"${PODMAN[@]}" compose up -d "$AI_SERVICE" "$CF_SERVICE"
+podman compose up -d "$AI_SERVICE" "$CF_SERVICE"
 
 # ===============================
-# 활성 Blue / Green 판별
+# 활성 색상 판별
 # ===============================
-if "${PODMAN[@]}" ps --format "{{.Names}}" | grep -qx "$BLUE_CONTAINER"; then
-  ACTIVE_CONTAINER="$BLUE_CONTAINER"
+if podman ps --format "{{.Names}}" | grep -qx "$BLUE_CONTAINER"; then
+  ACTIVE="$BLUE_CONTAINER"
   INACTIVE_SERVICE="$GREEN_SERVICE"
   INACTIVE_CONTAINER="$GREEN_CONTAINER"
 else
-  ACTIVE_CONTAINER="$GREEN_CONTAINER"
+  ACTIVE="$GREEN_CONTAINER"
   INACTIVE_SERVICE="$BLUE_SERVICE"
   INACTIVE_CONTAINER="$BLUE_CONTAINER"
 fi
 
-echo "현재 활성 컨테이너: $ACTIVE_CONTAINER"
-echo "다음 배포 대상 컨테이너: $INACTIVE_CONTAINER"
+echo "▶ 배포 대상: $INACTIVE_CONTAINER"
 
 # ===============================
-# 이미지 빌드
+# 빌드 & 재생성
 # ===============================
-"${PODMAN[@]}" compose build --no-cache "$INACTIVE_SERVICE"
-
-# ===============================
-# 컨테이너 강제 재생성 (🔥 핵심 수정)
-# ===============================
-"${PODMAN[@]}" compose up -d \
-  --no-deps \
-  --force-recreate \
-  "$INACTIVE_SERVICE"
+podman compose build --no-cache "$INACTIVE_SERVICE"
+podman compose up -d --no-deps --force-recreate "$INACTIVE_SERVICE"
 
 # ===============================
 # 헬스체크
 # ===============================
-echo "🩺 헬스체크 확인 중..."
 for i in {1..30}; do
-  if "${PODMAN[@]}" exec "$INACTIVE_CONTAINER" \
-      curl -sf http://localhost:8090/health | grep -q '"status":"up"'; then
+  if podman exec "$INACTIVE_CONTAINER" curl -sf http://localhost:8090/health | grep -q up; then
     echo "✅ 헬스체크 통과"
     break
   fi
@@ -84,12 +57,11 @@ done
 # ===============================
 # Nginx 전환
 # ===============================
-TARGET_COLOR="${INACTIVE_SERVICE#springboot-}"
-"$SCRIPT_DIR/switch-nginx.sh" "$TARGET_COLOR"
+./switch-nginx.sh "${INACTIVE_SERVICE#springboot-}"
 
 # ===============================
 # 기존 컨테이너 종료
 # ===============================
-"${PODMAN[@]}" stop "$ACTIVE_CONTAINER"
+podman stop "$ACTIVE"
 
-echo "🎉 RouteRecipt 무중단 배포 완료"
+echo "🎉 CI 배포 완료"
