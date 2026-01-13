@@ -1,4 +1,5 @@
-FROM eclipse-temurin:17-jre
+FROM docker.io/eclipse-temurin:17-jre
+
 WORKDIR /app
 
 COPY RouteRecipt-0.0.1-SNAPSHOT.jar app.jar
