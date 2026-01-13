@@ -3,45 +3,41 @@ set -e
 
 cd "$(dirname "$0")"
 
-if command -v podman >/dev/null 2>&1; then
-  PODMAN=(podman)
-else
-  PODMAN=("/mnt/c/Program Files/RedHat/Podman/podman.exe")
-fi
+BLUE="routerecipt-springboot-blue"
+GREEN="routerecipt-springboot-green"
+IMAGE="localhost/routereciptd_springboot:latest"
 
-IMAGE="localhost/routereciptd_springboot"
-NETWORK="routerecipt_routerecipt-net"
-ALIAS="routerecipt-backend"
-
-BLUE="springboot-blue"
-GREEN="springboot-green"
-
-if "${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "^routerecipt-${BLUE}$"; then
+if podman ps --format "{{.Names}}" | grep -q "$BLUE"; then
   ACTIVE="$BLUE"
   INACTIVE="$GREEN"
-  TAG="green"
+  PORT="8091"
 else
   ACTIVE="$GREEN"
   INACTIVE="$BLUE"
-  TAG="blue"
+  PORT="8090"
 fi
 
-echo "ACTIVE=$ACTIVE"
-echo "INACTIVE=$INACTIVE"
+echo "Active  : $ACTIVE"
+echo "Inactive: $INACTIVE (port=$PORT)"
 
-"${PODMAN[@]}" rm -f "routerecipt-${INACTIVE}" 2>/dev/null || true
+podman stop $INACTIVE || true
+podman rm $INACTIVE || true
 
-"${PODMAN[@]}" run -d \
-  --name "routerecipt-${INACTIVE}" \
-  --network "$NETWORK" \
-  --network-alias "$ALIAS" \
+podman run -d --name $INACTIVE \
+  --network routerecipt-net \
+  -p ${PORT}:8090 \
   --env-file .env \
-  "${IMAGE}:${TAG}"
+  $IMAGE
 
-sleep 8
+HEALTH_URL="http://localhost:${PORT}/health"
 
-"${PODMAN[@]}" stop "routerecipt-${ACTIVE}" 2>/dev/null || true
+for i in {1..20}; do
+  if curl -sf "$HEALTH_URL" > /dev/null; then
+    echo "✅ Health OK"
+    exit 0
+  fi
+  sleep 3
+done
 
-"${PODMAN[@]}" exec routerecipt-nginx nginx -s reload || true
-
-echo "✅ Blue-Green switch complete"
+echo "❌ Health check failed"
+exit 1

@@ -1,0 +1,45 @@
+# ======================================================
+# RouteRecipt - 운영(M) 환경 전용 application.yml
+# 목적:
+#  - Podman healthcheck 안정화
+#  - Nginx Blue/Green 무중단 전환 지원
+#  - 운영 환경 최소 노출 원칙
+# ======================================================
+
+spring:
+  application:
+    name: routerecipt
+
+  # (선택) 운영 환경 프로파일 표시용
+  profiles:
+    active: prod
+
+
+# ======================================================
+# Actuator / Healthcheck 설정 (⭐ 핵심)
+# ======================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health        # /health 만 외부 노출
+  endpoint:
+    health:
+      show-details: never     # 상세 정보 숨김 (운영 보안)
+
+
+# ======================================================
+# 서버 기본 설정
+# ======================================================
+server:
+  port: 8090                 # 컨테이너 내부 포트 (Blue/Green 공통)
+
+
+# ======================================================
+# 로그 설정 (운영 최소 로그)
+# ======================================================
+logging:
+  level:
+    root: INFO
+    org.springframework.web: INFO
+    org.springframework.security: INFO

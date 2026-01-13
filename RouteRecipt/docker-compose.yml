@@ -1,6 +1,9 @@
 version: "3.8"
 
 services:
+  # ======================================================
+  # MariaDB
+  # ======================================================
   mariadb:
     image: mariadb:11.4
     container_name: routerecipt-mariadb
@@ -17,6 +20,9 @@ services:
     networks:
       - routerecipt-net
 
+  # ======================================================
+  # Redis (RedisBloom 포함)
+  # ======================================================
   redis:
     image: redislabs/rebloom:latest
     container_name: routerecipt-redis
@@ -24,6 +30,9 @@ services:
     networks:
       - routerecipt-net
 
+  # ======================================================
+  # FastAPI AI
+  # ======================================================
   fastapi-ai:
     image: localhost/routereciptd_fastapi-ai:latest
     container_name: routerecipt-fastapi-ai
@@ -33,6 +42,63 @@ services:
     networks:
       - routerecipt-net
 
+  # ======================================================
+  # Spring Boot - Blue (ACTIVE)
+  # ======================================================
+  springboot-blue:
+    image: localhost/routereciptd_springboot:latest
+    container_name: routerecipt-springboot-blue
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8090:8090"
+    environment:
+      SPRING_DATA_REDIS_HOST: routerecipt-redis
+      SPRING_DATA_REDIS_PORT: 6379
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      - mariadb
+      - redis
+      - fastapi-ai
+    networks:
+      - routerecipt-net
+
+  # ======================================================
+  # Spring Boot - Green (INACTIVE → 배포 대상)
+  # ======================================================
+  springboot-green:
+    image: localhost/routereciptd_springboot:latest
+    container_name: routerecipt-springboot-green
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8091:8090"
+    environment:
+      SPRING_DATA_REDIS_HOST: routerecipt-redis
+      SPRING_DATA_REDIS_PORT: 6379
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8090/health"]
+      interval: 10s
+      timeout: 2s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      - mariadb
+      - redis
+      - fastapi-ai
+    networks:
+      - routerecipt-net
+
+  # ======================================================
+  # Nginx (Reverse Proxy / Blue-Green Entry Point)
+  # ======================================================
   nginx:
     build:
       context: ./nginx
@@ -40,9 +106,20 @@ services:
     image: localhost/routereciptd_nginx:latest
     container_name: routerecipt-nginx
     restart: always
+
+    # ⭐⭐⭐ 핵심: HOST → NGINX 포트 바인딩
+    ports:
+      - "80:80"
+
+    depends_on:
+      - springboot-blue
+      - springboot-green
     networks:
       - routerecipt-net
 
+  # ======================================================
+  # Cloudflare Tunnel (외부 진입점)
+  # ======================================================
   cloudflared:
     image: cloudflare/cloudflared:2025.11.1
     container_name: routerecipt-cloudflared
