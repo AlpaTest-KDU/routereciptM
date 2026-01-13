@@ -14,7 +14,6 @@ if [ ! -f "$ENV_FILE" ]; then
   echo "❌ ENV 파일 없음: $ENV_FILE"
   exit 1
 fi
-
 echo "📁 ENV_FILE = $ENV_FILE"
 
 # ===== 이미지 체크 =====
@@ -36,24 +35,23 @@ fi
 if podman ps --format "{{.Names}}" | grep -q "^${BLUE}$"; then
   ACTIVE="$BLUE"
   INACTIVE="$GREEN"
-  PORT="8091"
 elif podman ps --format "{{.Names}}" | grep -q "^${GREEN}$"; then
   ACTIVE="$GREEN"
   INACTIVE="$BLUE"
-  PORT="8090"
 else
   echo "ℹ️ 실행 중 컨테이너 없음 → 최초 배포"
   ACTIVE="none"
   INACTIVE="$BLUE"
-  PORT="8090"
 fi
 
 echo "🟢 Active  : $ACTIVE"
-echo "🔵 Inactive: $INACTIVE (port=$PORT)"
+echo "🔵 Inactive: $INACTIVE"
 
 # ===== Inactive 재기동 =====
 podman stop "$INACTIVE" 2>/dev/null || true
 podman rm   "$INACTIVE" 2>/dev/null || true
+
+PORT=$([ "$INACTIVE" = "$BLUE" ] && echo 8090 || echo 8091)
 
 podman run -d \
   --name "$INACTIVE" \
@@ -62,9 +60,9 @@ podman run -d \
   --env-file "$ENV_FILE" \
   "$IMAGE"
 
-# ===== Health Check =====
-HEALTH_URL="http://localhost:${PORT}/health"
-echo "🔎 Health check: $HEALTH_URL"
+# ===== Health Check (Nginx 기준) =====
+HEALTH_URL="http://localhost/health"
+echo "🔎 Health check (via Nginx): $HEALTH_URL"
 
 for i in {1..20}; do
   if curl -sf "$HEALTH_URL" > /dev/null; then
