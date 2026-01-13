@@ -54,13 +54,12 @@ echo "현재 활성: $ACTIVE_CONTAINER ($ACTIVE_TAG)"
 echo "배포 대상: $INACTIVE_CONTAINER ($INACTIVE_TAG)"
 
 #######################################
-# 신규 컨테이너 기동
+# 신규 컨테이너 기동 (🔥 핵심 수정)
 #######################################
 echo "🚀 신규 컨테이너 기동: $INACTIVE_CONTAINER"
 
-"${PODMAN[@]}" rm -f "routerecipt-${INACTIVE_CONTAINER}" 2>/dev/null || true
-
 "${PODMAN[@]}" run -d \
+  --replace \
   --name "routerecipt-${INACTIVE_CONTAINER}" \
   --network "$NETWORK" \
   --network-alias "$BACKEND_ALIAS" \
