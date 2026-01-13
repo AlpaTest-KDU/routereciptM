@@ -33,57 +33,13 @@ services:
     networks:
       - routerecipt-net
 
-  springboot-blue:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: localhost/routereciptd_springboot:blue
-    container_name: routerecipt-springboot-blue
-    env_file:
-      - .env
-    environment:
-      SPRING_PROFILES_ACTIVE: blue
-      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_DATA_REDIS_HOST: routerecipt-redis
-      SPRING_DATA_REDIS_PORT: 6379
-    depends_on:
-      - mariadb
-      - redis
-    networks:
-      - routerecipt-net
-
-  springboot-green:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: localhost/routereciptd_springboot:green
-    container_name: routerecipt-springboot-green
-    env_file:
-      - .env
-    environment:
-      SPRING_PROFILES_ACTIVE: green
-      SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
-      SPRING_DATASOURCE_USERNAME: ${DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
-      SPRING_DATA_REDIS_HOST: routerecipt-redis
-      SPRING_DATA_REDIS_PORT: 6379
-    depends_on:
-      - mariadb
-      - redis
-    networks:
-      - routerecipt-net
-
   nginx:
     build:
       context: ./nginx
       dockerfile: Dockerfile
     image: localhost/routereciptd_nginx:latest
     container_name: routerecipt-nginx
-    depends_on:
-      - springboot-blue
-      - springboot-green
+    restart: always
     networks:
       - routerecipt-net
 
