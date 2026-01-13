@@ -3,41 +3,39 @@ set -e
 
 COLOR="$1"
 
-if [[ "$COLOR" != "blue" && "$COLOR" != "green" ]]; then
-  echo "❌ 사용법: switch-nginx.sh [blue|green]"
+if [[ -z "$COLOR" ]]; then
+  echo "❌ 색상 인자가 필요합니다 (blue | green)"
   exit 1
 fi
 
-NGINX_CONTAINER="routerecipt-nginx"
-TARGET_CONTAINER="routerecipt-springboot-${COLOR}"
+# ===============================
+# Podman 경로 고정 (deploy.sh와 동일)
+# ===============================
+PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
+
+PROJECT="routerecipt"
+NGINX_CONTAINER="${PROJECT}-nginx"
+TARGET_CONTAINER="${PROJECT}-springboot-${COLOR}"
+
+UPSTREAM_CONF="/etc/nginx/conf.d/upstream.conf"
 
 echo "🔀 Nginx upstream 전환 대상: $COLOR ($TARGET_CONTAINER)"
 
-podman exec -it "$NGINX_CONTAINER" sh -c "cat > /etc/nginx/conf.d/routerecipt.conf << 'EOF'
+# ===============================
+# upstream.conf 생성
+# ===============================
+"${PODMAN[@]}" exec "$NGINX_CONTAINER" sh -c "cat > $UPSTREAM_CONF << 'EOF'
 upstream backend {
     server ${TARGET_CONTAINER}:8090;
 }
-
-server {
-    listen 80;
-    server_name routerecipt.co.kr www.routerecipt.co.kr;
-
-    client_max_body_size 200M;
-
-    location / {
-        proxy_pass http://backend;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-    }
-}
 EOF"
 
-echo "🔍 nginx 설정 검사"
-podman exec -it "$NGINX_CONTAINER" nginx -t
+echo "📄 upstream.conf 생성 완료"
 
-echo "♻️ nginx reload"
-podman exec -it "$NGINX_CONTAINER" nginx -s reload
+# ===============================
+# nginx 설정 검사 + reload
+# ===============================
+"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -t
+"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -s reload
 
 echo "✅ Nginx 트래픽 전환 완료 → $COLOR"
