@@ -82,6 +82,7 @@ services:
     image: localhost/routereciptd_nginx:latest
     container_name: routerecipt-nginx
     depends_on:
+      - springboot-blue
       - springboot-green
     networks:
       - routerecipt-net
