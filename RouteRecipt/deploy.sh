@@ -1,76 +1,99 @@
 #!/bin/bash
 set -e
 
-# ===== 고정 설정 =====
-ENV_FILE="/home/sdedu01/actions-runner/.env"
+echo "======================================"
+echo "🚀 RouteRecipt Blue/Green Deploy Start"
+echo "======================================"
+
+PROJECT="routerecipt"
+
+BLUE_SERVICE="springboot-blue"
+GREEN_SERVICE="springboot-green"
+
+BLUE_CONTAINER="${PROJECT}-${BLUE_SERVICE}"
+GREEN_CONTAINER="${PROJECT}-${GREEN_SERVICE}"
+
 NETWORK="routerecipt-net"
-IMAGE="localhost/routereciptd_springboot:latest"
+HEALTH_URL="/health"
+HEALTH_TIMEOUT=30
 
-BLUE="routerecipt-springboot-blue"
-GREEN="routerecipt-springboot-green"
+PODMAN="podman"
 
-# ===== ENV 체크 =====
-if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ ENV 파일 없음: $ENV_FILE"
-  exit 1
-fi
-echo "📁 ENV_FILE = $ENV_FILE"
-
-# ===== 이미지 체크 =====
-if ! podman image exists "$IMAGE"; then
-  echo "❌ 이미지 없음: $IMAGE"
-  exit 1
-fi
-echo "🖼️  IMAGE OK: $IMAGE"
-
-# ===== 네트워크 보장 =====
-if ! podman network exists "$NETWORK"; then
-  echo "🌐 네트워크 없음 → 생성: $NETWORK"
-  podman network create "$NETWORK"
+# --------------------------------------------------
+# 1️⃣ 현재 ACTIVE 컨테이너 판별
+# --------------------------------------------------
+if $PODMAN ps --format "{{.Names}}" | grep -q "^${BLUE_CONTAINER}$"; then
+  ACTIVE_SERVICE=$BLUE_SERVICE
+  ACTIVE_CONTAINER=$BLUE_CONTAINER
+  INACTIVE_SERVICE=$GREEN_SERVICE
+  INACTIVE_CONTAINER=$GREEN_CONTAINER
 else
-  echo "🌐 네트워크 존재: $NETWORK"
+  ACTIVE_SERVICE=$GREEN_SERVICE
+  ACTIVE_CONTAINER=$GREEN_CONTAINER
+  INACTIVE_SERVICE=$BLUE_SERVICE
+  INACTIVE_CONTAINER=$BLUE_CONTAINER
 fi
 
-# ===== Active / Inactive 판별 =====
-if podman ps --format "{{.Names}}" | grep -q "^${BLUE}$"; then
-  ACTIVE="$BLUE"
-  INACTIVE="$GREEN"
-elif podman ps --format "{{.Names}}" | grep -q "^${GREEN}$"; then
-  ACTIVE="$GREEN"
-  INACTIVE="$BLUE"
-else
-  echo "ℹ️ 실행 중 컨테이너 없음 → 최초 배포"
-  ACTIVE="none"
-  INACTIVE="$BLUE"
-fi
+echo "🟢 ACTIVE  : $ACTIVE_CONTAINER"
+echo "🔵 TARGET  : $INACTIVE_CONTAINER"
 
-echo "🟢 Active  : $ACTIVE"
-echo "🔵 Inactive: $INACTIVE"
+# --------------------------------------------------
+# 2️⃣ INACTIVE 이미지 재빌드
+# --------------------------------------------------
+echo "🔨 Build image for $INACTIVE_SERVICE"
+$PODMAN compose build --no-cache $INACTIVE_SERVICE
 
-# ===== Inactive 재기동 =====
-podman stop "$INACTIVE" 2>/dev/null || true
-podman rm   "$INACTIVE" 2>/dev/null || true
+# --------------------------------------------------
+# 3️⃣ INACTIVE 컨테이너 기동
+# --------------------------------------------------
+echo "🚀 Start $INACTIVE_CONTAINER"
+$PODMAN compose up -d $INACTIVE_SERVICE
 
-PORT=$([ "$INACTIVE" = "$BLUE" ] && echo 8090 || echo 8091)
+# --------------------------------------------------
+# 4️⃣ Health Check
+# --------------------------------------------------
+echo "🩺 Health check started..."
 
-podman run -d \
-  --name "$INACTIVE" \
-  --network "$NETWORK" \
-  -p "${PORT}:8090" \
-  --env-file "$ENV_FILE" \
-  "$IMAGE"
+START_TIME=$(date +%s)
+while true; do
+  STATUS=$($PODMAN inspect --format='{{.State.Health.Status}}' "$INACTIVE_CONTAINER" 2>/dev/null || echo "starting")
 
-# ===== Health Check (Nginx 기준) =====
-HEALTH_URL="http://localhost/health"
-echo "🔎 Health check (via Nginx): $HEALTH_URL"
-
-for i in {1..20}; do
-  if curl -sf "$HEALTH_URL" > /dev/null; then
-    echo "✅ Health OK"
-    exit 0
+  if [ "$STATUS" == "healthy" ]; then
+    echo "✅ Health check passed"
+    break
   fi
-  sleep 3
+
+  NOW=$(date +%s)
+  ELAPSED=$((NOW - START_TIME))
+
+  if [ $ELAPSED -ge $HEALTH_TIMEOUT ]; then
+    echo "❌ Health check failed (timeout)"
+    echo "⛔ Rollback: stopping $INACTIVE_CONTAINER"
+    $PODMAN stop $INACTIVE_CONTAINER
+    exit 1
+  fi
+
+  sleep 2
 done
 
-echo "❌ Health check failed"
-exit 1
+# --------------------------------------------------
+# 5️⃣ Nginx 전환
+# --------------------------------------------------
+echo "🔁 Switching Nginx upstream to $INACTIVE_SERVICE"
+
+$PODMAN exec routerecipt-nginx sh -c "
+sed -i 's/${ACTIVE_SERVICE}/${INACTIVE_SERVICE}/g' /etc/nginx/conf.d/*.conf &&
+nginx -s reload
+"
+
+echo "🌐 Nginx switched"
+
+# --------------------------------------------------
+# 6️⃣ 이전 ACTIVE 컨테이너 종료
+# --------------------------------------------------
+echo "🛑 Stop old container: $ACTIVE_CONTAINER"
+$PODMAN stop $ACTIVE_CONTAINER
+
+echo "======================================"
+echo "🎉 Deploy completed successfully"
+echo "======================================"

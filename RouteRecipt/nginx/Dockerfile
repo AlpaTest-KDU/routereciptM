@@ -1,12 +1,8 @@
-FROM nginx:alpine
+FROM nginx:1.29-alpine
 
-# 기본 설정 제거
-RUN rm -f /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY conf.d/ /etc/nginx/conf.d/
 
-# 메인 도메인 설정
-COPY routerecipt.conf /etc/nginx/conf.d/routerecipt.conf
-
-# upload 도메인 리다이렉트 설정
-COPY upload.conf /etc/nginx/conf.d/upload.conf
-
-
+RUN ln -sf /etc/nginx/conf.d/upstream-blue.conf \
+           /etc/nginx/conf.d/active-upstream.conf \
+ && nginx -t

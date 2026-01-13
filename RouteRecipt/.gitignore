@@ -1,20 +1,42 @@
-# Eclipse metadata
+# ================================
+# Eclipse / IDE
+# ================================
 .metadata/
 bin/
-build/
-.gradle/
 *.log
 
-# env
+# ================================
+# Gradle / Build
+# ================================
+.gradle/
+build/
+**/build/
+
+# ================================
+# Environment variables (절대 커밋 금지)
+# ================================
 .env
+*.env
 
-# build artifacts
+# ================================
+# Java artifacts
+# ================================
 *.jar
-/build/
-/RouteRecipt/build/
+!/RouteRecipt-0.0.1-SNAPSHOT.jar
 
-# runner / local
+# ================================
+# CI / Runner (local only)
+# ================================
 .actions-runner/
 
-# allow deploy jar for CI
-!RouteRecipt-0.0.1-SNAPSHOT.jar
+# ================================
+# Runtime data (볼륨)
+# ================================
+mariadb_data/
+redis_data/
+
+# ================================
+# OS
+# ================================
+.DS_Store
+Thumbs.db
