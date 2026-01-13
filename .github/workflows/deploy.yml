@@ -14,13 +14,18 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Spring Boot JAR
+        working-directory: RouteRecipt
         run: |
+          chmod +x gradlew
           ./gradlew clean bootJar
 
       - name: Build Podman Image
+        working-directory: RouteRecipt
         run: |
           podman build -t localhost/routereciptd_springboot:latest .
 
       - name: Deploy (Blue/Green)
+        working-directory: RouteRecipt
         run: |
+          chmod +x deploy.sh
           ./deploy.sh
