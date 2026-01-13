@@ -7,12 +7,12 @@ set -e
 cd "$(dirname "$0")"
 
 #######################################
-# Podman 탐색
+# Podman 실행 파일 탐색 (공백 대응)
 #######################################
 if command -v podman >/dev/null 2>&1; then
-  PODMAN="podman"
+  PODMAN=(podman)
 elif [ -x "/mnt/c/Program Files/RedHat/Podman/podman.exe" ]; then
-  PODMAN="/mnt/c/Program Files/RedHat/Podman/podman.exe"
+  PODMAN=("/mnt/c/Program Files/RedHat/Podman/podman.exe")
 else
   echo "❌ podman not found"
   exit 127
@@ -28,12 +28,12 @@ BACKEND_ALIAS="routerecipt-backend"
 NETWORK="routerecipt_routerecipt-net"
 
 echo "🚀 RouteRecipt Blue-Green Deploy"
-echo "▶ Using podman: $PODMAN"
+echo "▶ Using podman: ${PODMAN[*]}"
 
 #######################################
 # 활성 컨테이너 판별
 #######################################
-if $PODMAN ps --format "{{.Names}}" | grep -q "routerecipt-${BLUE}"; then
+if "${PODMAN[@]}" ps --format "{{.Names}}" | grep -q "routerecipt-${BLUE}"; then
   ACTIVE="$BLUE"
   INACTIVE="$GREEN"
 else
@@ -45,13 +45,13 @@ echo "현재 활성: $ACTIVE"
 echo "배포 대상: $INACTIVE"
 
 #######################################
-# 신규 컨테이너 기동 (alias 포함)
+# 신규 컨테이너 기동 (network alias)
 #######################################
 echo "🚀 신규 컨테이너 기동: $INACTIVE"
 
-$PODMAN rm -f "routerecipt-${INACTIVE}" 2>/dev/null || true
+"${PODMAN[@]}" rm -f "routerecipt-${INACTIVE}" 2>/dev/null || true
 
-$PODMAN run -d \
+"${PODMAN[@]}" run -d \
   --name "routerecipt-${INACTIVE}" \
   --network "$NETWORK" \
   --network-alias "$BACKEND_ALIAS" \
@@ -64,15 +64,15 @@ $PODMAN run -d \
 sleep 8
 
 #######################################
-# 기존 컨테이너 alias 제거 & 종료
+# 기존 컨테이너 종료
 #######################################
 echo "🛑 기존 컨테이너 종료: $ACTIVE"
-$PODMAN stop "routerecipt-${ACTIVE}" || true
+"${PODMAN[@]}" stop "routerecipt-${ACTIVE}" || true
 
 #######################################
 # nginx reload
 #######################################
 echo "🔄 nginx reload"
-$PODMAN exec routerecipt-nginx nginx -s reload || true
+"${PODMAN[@]}" exec routerecipt-nginx nginx -s reload || true
 
 echo "✅ 배포 완료"
