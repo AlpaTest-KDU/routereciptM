@@ -1,54 +1,43 @@
 #!/bin/bash
 set -e
 
-TARGET_COLOR="$1"
+COLOR="$1"
 
-if [[ -z "$TARGET_COLOR" ]]; then
+if [[ "$COLOR" != "blue" && "$COLOR" != "green" ]]; then
   echo "❌ 사용법: switch-nginx.sh [blue|green]"
   exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-NGINX_DIR="$SCRIPT_DIR/nginx"
-CONF_DIR="$NGINX_DIR/conf.d"
-UPSTREAM_CONF="$CONF_DIR/upstream.conf"
-
-PODMAN=(/mnt/c/Program\ Files/RedHat/Podman/podman.exe)
 NGINX_CONTAINER="routerecipt-nginx"
+TARGET_CONTAINER="routerecipt-springboot-${COLOR}"
 
-BLUE_CONTAINER="routerecipt-springboot-blue"
-GREEN_CONTAINER="routerecipt-springboot-green"
+echo "🔀 Nginx upstream 전환 대상: $COLOR ($TARGET_CONTAINER)"
 
-case "$TARGET_COLOR" in
-  blue)
-    TARGET_CONTAINER="$BLUE_CONTAINER"
-    ;;
-  green)
-    TARGET_CONTAINER="$GREEN_CONTAINER"
-    ;;
-  *)
-    echo "❌ 잘못된 인자: $TARGET_COLOR (blue | green)"
-    exit 1
-    ;;
-esac
-
-echo "🔀 Nginx upstream 전환 대상: $TARGET_COLOR ($TARGET_CONTAINER)"
-
-mkdir -p "$CONF_DIR"
-
-cat > "$UPSTREAM_CONF" << EOF
+podman exec -it "$NGINX_CONTAINER" sh -c "cat > /etc/nginx/conf.d/routerecipt.conf << 'EOF'
 upstream backend {
-    server $TARGET_CONTAINER:8090;
+    server ${TARGET_CONTAINER}:8090;
 }
-EOF
 
-echo "📄 upstream.conf 생성 완료"
-cat "$UPSTREAM_CONF"
+server {
+    listen 80;
+    server_name routerecipt.co.kr www.routerecipt.co.kr;
 
-echo "🔍 nginx 설정 검사 (컨테이너 내부)"
-"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -t
+    client_max_body_size 200M;
 
-echo "♻️ nginx reload (컨테이너 내부)"
-"${PODMAN[@]}" exec "$NGINX_CONTAINER" nginx -s reload
+    location / {
+        proxy_pass http://backend;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+}
+EOF"
 
-echo "✅ Nginx 트래픽 전환 완료 → $TARGET_COLOR"
+echo "🔍 nginx 설정 검사"
+podman exec -it "$NGINX_CONTAINER" nginx -t
+
+echo "♻️ nginx reload"
+podman exec -it "$NGINX_CONTAINER" nginx -s reload
+
+echo "✅ Nginx 트래픽 전환 완료 → $COLOR"
