@@ -27,9 +27,21 @@ PROJECT="routerecipt"
 
 BLUE_SERVICE="springboot-blue"
 GREEN_SERVICE="springboot-green"
+CF_SERVICE="cloudflared"
 
 BLUE_CONTAINER="${PROJECT}-springboot-blue"
 GREEN_CONTAINER="${PROJECT}-springboot-green"
+CF_CONTAINER="${PROJECT}-cloudflared"
+
+# =====================================================
+# 🔒 2-1️⃣ Cloudflare Tunnel 보장 (⭐ 추가된 핵심)
+# =====================================================
+if ! "${PODMAN[@]}" ps --format "{{.Names}}" | grep -qx "$CF_CONTAINER"; then
+  echo "☁️ cloudflared 컨테이너 없음 → 기동"
+  "${PODMAN[@]}" compose up -d "$CF_SERVICE"
+else
+  echo "✔ cloudflared 이미 실행 중"
+fi
 
 # =====================================================
 # 3️⃣ 현재 활성 컨테이너 판별
