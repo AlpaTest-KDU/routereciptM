@@ -5,19 +5,15 @@ services:
     image: mariadb:11.4
     container_name: routerecipt-mariadb
     restart: always
-
     env_file:
       - .env
-
     environment:
       MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
       MARIADB_DATABASE: routereciptdb
       MARIADB_USER: ${DB_USER}
       MARIADB_PASSWORD: ${DB_PASSWORD}
-
     volumes:
       - mariadb_data:/var/lib/mysql
-
     networks:
       - routerecipt-net
 
@@ -32,10 +28,8 @@ services:
     image: localhost/routereciptd_fastapi-ai:latest
     container_name: routerecipt-fastapi-ai
     restart: unless-stopped
-
     ports:
       - "8000:8000"
-
     networks:
       - routerecipt-net
 
@@ -45,14 +39,8 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:blue
     container_name: routerecipt-springboot-blue
-
-    depends_on:
-      - mariadb
-      - redis
-
     env_file:
       - .env
-
     environment:
       SPRING_PROFILES_ACTIVE: blue
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
@@ -60,7 +48,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
-
+    depends_on:
+      - mariadb
+      - redis
     networks:
       - routerecipt-net
 
@@ -70,14 +60,8 @@ services:
       dockerfile: Dockerfile
     image: localhost/routereciptd_springboot:green
     container_name: routerecipt-springboot-green
-
-    depends_on:
-      - mariadb
-      - redis
-
     env_file:
       - .env
-
     environment:
       SPRING_PROFILES_ACTIVE: green
       SPRING_DATASOURCE_URL: jdbc:mariadb://routerecipt-mariadb:3306/routereciptdb
@@ -85,7 +69,9 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
       SPRING_DATA_REDIS_HOST: routerecipt-redis
       SPRING_DATA_REDIS_PORT: 6379
-
+    depends_on:
+      - mariadb
+      - redis
     networks:
       - routerecipt-net
 
@@ -93,39 +79,29 @@ services:
     build:
       context: ./nginx
       dockerfile: Dockerfile
-    image: routerecipt-nginx
+    image: localhost/routereciptd_nginx:latest
     container_name: routerecipt-nginx
-
     ports:
       - "8080:80"
-
     depends_on:
       - springboot-green
-
     networks:
       - routerecipt-net
 
-  # ===============================
-  # ✅ Cloudflare Tunnel (정상 컨테이너화)
-  # ===============================
   cloudflared:
     image: cloudflare/cloudflared:2025.11.1
     container_name: routerecipt-cloudflared
     restart: unless-stopped
-
     command:
-    - tunnel
-    - --config
-    - /etc/cloudflared/config.yml
-    - run
-
+      - tunnel
+      - --config
+      - /etc/cloudflared/config.yml
+      - run
     volumes:
       - ./cloudflared/config.yml:/etc/cloudflared/config.yml:ro
       - ./cloudflared/creds.json:/etc/cloudflared/creds.json:ro
-
     depends_on:
       - nginx
-
     networks:
       - routerecipt-net
 
