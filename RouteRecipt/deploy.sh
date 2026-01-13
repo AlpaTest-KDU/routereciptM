@@ -9,13 +9,21 @@ IMAGE="localhost/routereciptd_springboot:latest"
 BLUE="routerecipt-springboot-blue"
 GREEN="routerecipt-springboot-green"
 
-# ===== 안전 체크 =====
+# ===== ENV 체크 =====
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ ENV 파일 없음: $ENV_FILE"
   exit 1
 fi
 
 echo "📁 ENV_FILE = $ENV_FILE"
+
+# ===== 네트워크 보장 =====
+if ! podman network exists "$NETWORK"; then
+  echo "🌐 네트워크 없음 → 생성: $NETWORK"
+  podman network create "$NETWORK"
+else
+  echo "🌐 네트워크 존재: $NETWORK"
+fi
 
 # ===== Active / Inactive 판별 =====
 if podman ps --format "{{.Names}}" | grep -q "^${BLUE}$"; then
